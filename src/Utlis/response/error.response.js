@@ -50,7 +50,15 @@ export const ForbiddenException = (
 
 export const globalErorrHandler = (error, req, res, next) => {
     const status = error.status ?? 500;
+    const extra = error.extra || undefined;
     return res
     .status(status)
-    .json({ message: error.message, stack: error.stack, status });
+    .json({ message: error.message, stack: error.stack, status, extra });
 };
+
+export class ErrorClass extends Error {
+    constructor(message, statusCode) {
+        super(message);
+        this.statusCode = statusCode || 500;
+    }
+}
