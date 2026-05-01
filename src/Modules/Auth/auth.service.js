@@ -1,7 +1,7 @@
 import UserModel from "../../DB/models/user.model.js"; 
 import { BadRequestException, ConflictException, NotFoundException } from "../../Utlis/response/error.response.js";
 import { successResponse } from "../../Utlis/response/succes.response.js";
-import { create, findOne, findById, updateOne } from "../../DB//models/database.repository.js";
+import { create, findOne, findById, updateOne, findOneAndUpdate } from "../../DB//models/database.repository.js";
 import { generateHash, compareHash } from "../../Utlis/security/hash.security.js";
 import { HashEnum } from "../../Utlis/enumes/security.enum.js";
 import { encrypt } from "../../Utlis/security/encryption.security.js";
@@ -12,29 +12,35 @@ import { getNewLoginCredentials } from "../../Utlis/token/token.js";
 import { getSignature, generateToken as generateToken2 } from "../../Utlis/token/token.js";
 import { SignatureEnum, TokenTypeEnum, RoleEnum, ProviderEnum, LogoutTypeEnum } from "../../Utlis/enumes/user.enumes.js";
 import { ACCESS_EXPIRES } from "../../../config/config.service.js";
-import { generateOTP } from "../../Utlis/security/otp.security.js";
 import { OAuth2Client } from "google-auth-library";
-import { profile } from "node:console";
+import { log, profile } from "node:console";
 import joi from "joi";
 import TokenModel from "../../DB/models/token.model.js";
 import { set } from "../../DB/redis.service.js";
 import { revokeTokenKey, ttl } from "../../DB/redis.service.js";
+import { sendEmail } from "../../Utlis/email/email.utils.js";
+import { emailSubject } from "../../Utlis/email/email.utils.js";
+import {customAlphabet} from "nanoid"
+import { generateOTP } from "../../Utlis/generateOtp.js";
+import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
+
 
 
 export const signup = async (req, res) => {
-
-  const { firstName, lastName, email, password, phone } = req.body;
-
+  const { firstName, lastName, email, password, phone, age, confirmPassword  } = req.body;
   if (await findOne({ model: UserModel, filter: { email } }))
     throw ConflictException({ message: "User already exists" });
-
   const hashedPassword = await generateHash({
     plaintext: password,
     algo: HashEnum.Argon,
   });
-
   const encryptedData = await encrypt(phone);
-
+  const otp = generateOTP(); // otp math
+  // const otp = customAlphabet('abcdefghjklmn1234567890', 6)();
+   const hashedOtp = await generateHash({
+    plaintext: JSON.stringify(otp),
+    algo: HashEnum.Argon,
+  });
   const user = await create({
   model: UserModel,
   data: [
@@ -42,54 +48,120 @@ export const signup = async (req, res) => {
       firstName,
       lastName,
       email,
+      age,
       password: hashedPassword,
+      confirmPassword: hashedPassword,
       phone: encryptedData,
+      confirmEmailOtp: hashedOtp,
     },
   ],
 });
-
-  const otp = generateOTP();
-
-  user.otpCode = otp;
-  user.otpExpires = Date.now() + 5 * 60 * 1000;
-
-  await user.save();
-
-  console.log("OTP:", otp);
-
+const emailData = {
+  to: user.email,
+  otp: otp,
+  firstName: user.firstName,
+};
+emailEvent.emit("confirmEmail", {to:email,  otp, firstName});
   return successResponse({
     res, 
     statusCode: 201, 
     message: "User created successfully", 
-    data: { validationResults },
+    data: { user },
   });
 };
 
-
-export const login = async (req, res) => {
-
-    const { email, password } = req.body;
-
-    const user = await findOne({ model: UserModel, filter: { email } });
-
+export const confirmEmail = async (req, res) => {
+    const { email, otp } = req.body;
+    const user = await findOne({ 
+      model: UserModel, 
+      filter: { 
+        email, 
+        confirmEmail: { $exists: false }, 
+        confirmEmailOtp: { $exists: true } ,
+      } 
+    });
     if (!user)
         throw NotFoundException({ message: "User Not Found" });
+    const isOtpValid = await compareHash({
+        plaintext: otp,
+        ciphertext: user.confirmEmailOtp,
+        algo: HashEnum.Argon,
+    });
+    if (!isOtpValid)
+        throw BadRequestException({ message: "Invalid otp" });
+      //update
+    await updateOne({ 
+      model: UserModel, 
+      filter: { email}, 
+      update: { confirmEmail: Date.now() , $unset: { confirmEmailOtp: true } },
+    });
+    return successResponse({
+        res, 
+        statusCode: 200, 
+        message: "Email confirmed successfully", 
+    });
+};
 
-    if (!user.isVerified) {
-        throw BadRequestException({ message: "Verify your email first" });
-    }
+export const resendOtp = async (req, res) => {
+  const { email } = req.body;
 
+  const user = await findOne({
+    model: UserModel,
+    filter: {
+      email,
+      confirmEmail: { $exists: false },
+    },
+  });
+  if (!user)
+    throw NotFoundException({ message: "User Not Found" });
+  // generate OTP
+  const otp = generateOTP();
+
+  const hashedOtp = await generateHash({
+    plaintext: otp,
+    algo: HashEnum.Argon,
+  });
+  await updateOne({
+    model: UserModel,
+    filter: { email },
+    update: {
+      confirmEmailOtp: hashedOtp,
+    },
+  });
+  // send email (نفس confirm بالظبط)
+  emailEventy.emit("resendOtp", {
+    to: user.email,
+    otp,
+    firstName: user.firstName,
+  });
+  return successResponse({
+    res,
+    statusCode: 200,
+    message: "OTP resent successfully",
+  });
+};
+
+export const login = async (req, res) => {
+    const { email, password } = req.body;
+    const user = await findOne({ 
+      model: UserModel, 
+      filter: { 
+        email, 
+        confirmEmail: { $exists: true },
+        freezedAt: { $exists: false }
+       },
+    });
+    if (!user)
+        throw NotFoundException({ message: "User Not Found" });
+    
     const isPasswordValid = await compareHash({
         plaintext: password,
         ciphertext: user.password,
         algo: HashEnum.Argon,
     });
-
     if (!isPasswordValid)
         throw BadRequestException({ message: "Invalid email or password" });
-
     const credentials = await getNewLoginCredentials(user);
-
     return successResponse({
         res,
         statusCode: 200,
@@ -98,55 +170,38 @@ export const login = async (req, res) => {
     });
 };
 
-export const refreshToken = async (req, res, next) => {
-  const {authorization} = req.headers;
-  const decodedToken = verifyToken({
-    token: authorization,
-  });
+export const refreshToken = async (req, res) => {
+
   const user = await findById({
     model: UserModel,
-    id: decodedToken.id,
+    id: req.user.id, // 🔥 جاي من middleware
   });
-  if (!user) throw NotFoundException({message :  "User not found" });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const signature = getSignature({
+    getSignatureLevel:
+      user.role !== RoleEnum.Admin
+        ? SignatureEnum.User
+        : SignatureEnum.Admin,
+  });
+
   const accessToken = generateToken({
     payload: {
       id: user._id,
-      email: user.email,
+      role: user.role, // 🔥 مهم جدًا
     },
-    secret: process.env.ACCESS_TOKEN_SECRET,
-    expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN,
+    secretKey: signature.accesssignature,
+    options: { expiresIn: ACCESS_EXPIRES },
   });
-  
 
-  console.log(decodedToken); 
-}
-
-export const verifyOTP = async (req, res, next) => {
-    const { email, otp } = req.body;
-
-    const user = await UserModel.findOne({ email });
-
-    if (!user) throw NotFoundException({message :  "User not found" });
-
-    if (user.isVerified) throw BadRequestException({message :  "Already verified" });
-
-    if (user.otpCode !== otp) throw BadRequestException({message :  "Invalid OTP" });
-    
-    if (user.otpExpires < Date.now()) throw BadRequestException({message :  "OTP expired" });
-
-    user.isVerified = true;
-    user.otpCode = undefined;
-    user.otpExpires = undefined;
-
-    await user.save();
-
-    return successResponse({
-        res,
-        statusCode: 200,
-        message: "Verified successfully",
-    });
+  return res.json({
+    message: "Token refreshed successfully",
+    accessToken,
+  });
 };
-
 
 async function verifyGoogleAccount({idToken}) {
   const client = new OAuth2Client();
@@ -267,5 +322,79 @@ export const logout = async (req, res) => {
     });
   };
 
+export const forgetPassword = async (req, res) => {
+  const { email } = req.body;
+ //generate otp 
+  const otp = generateOTP();
+  const hashOtp = await generateHash({ 
+    plaintext: JSON.stringify(otp), 
+    algo: HashEnum.Argon, 
+  });
+  const user = await findOneAndUpdate({
+    model : UserModel,
+    filter : { 
+      email, 
+      provider: ProviderEnum.System,
+      confirmEmail: { $exists: true },
+    },
+    update : {
+       forgetPasswordOTP : hashOtp
+    },
+  });
+  if(!user)throw NotFoundException({message: "User not found"});
+  emailEvent.emit("forgetPassword", {
+    to: email,
+    otp,
+    firstName: user.firstName,
+  });
+   return successResponse({
+    res,
+    statusCode: 200,
+    message: "Check Your Inbox",
+  });
+};
+
+export const resetPassword = async (req, res) => {
+ const { email, otp, newPassword } = req.body;
+  const user = await findOne({
+    model : UserModel,
+    filter : { 
+      email, 
+      provider: ProviderEnum.System,
+      confirmEmail: { $exists: true },
+      forgetPasswordOTP: { $exists: true, $ne: null }
+    },
+  });
+ if (!user) throw NotFoundException({message: "User not found"});
+ const isOtpValid = await compareHash({
+        plaintext: JSON.stringify(otp),
+        ciphertext: user.forgetPasswordOTP,
+        algo: HashEnum.Argon,
+    });
+    if (!isOtpValid) 
+        throw BadRequestException({
+            message: "Invalid OTP",
+        });
+
+     const hashedPassword = await generateHash({ 
+        plaintext: newPassword, 
+        algo: HashEnum.Argon, 
+      });
+      //update user password
+      await updateOne({
+        model : UserModel,
+        filter : { email},
+        update : { 
+          password: hashedPassword ,
+          $unset: { forgetPasswordOTP: true },
+        },
+      });
+      return successResponse({
+        res,
+        statusCode: 200,
+        message: "Password reset successfully",
+      });
+    
+};
 
 

@@ -11,7 +11,19 @@ const router = Router();
 
 router.post("/signup",
   validation(authValidation.signupSchema),
-  authService.signup,
+  authService.signup  
+);
+
+router.patch(
+  "/confirm-email",
+  validation(authValidation.confirmEmailSchema),
+  authService.confirmEmail
+);
+
+router.patch(
+  "/resend-otp",
+  validation(authValidation.resendOtpSchema),
+  authService.resendOtp
 );
 
 router.post("/login",
@@ -25,8 +37,6 @@ router.post(
   authService.refreshToken
 );
 
-router.post("/verify-otp", authService.verifyOTP);
-
 router.post("/social-login", authService.loginWithGoogle);
 
 router.post(
@@ -39,6 +49,17 @@ router.post(
   "/logout-with-redis",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authService.logoutWithRedis
+);
+
+router.patch("/forget-password",
+  validation(authValidation.forgetPasswordSchema),
+  authService.forgetPassword
+);
+
+router.patch(
+  "/reset-password",
+  validation(authValidation.resetPasswordSchema),
+  authService.resetPassword
 );
 
 

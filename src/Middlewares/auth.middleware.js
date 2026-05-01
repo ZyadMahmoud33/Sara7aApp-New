@@ -14,13 +14,16 @@ export const decodedToken = async ({
   authorization,
   tokenType = TokenTypeEnum.Access,
 }) => {
-    const [bearer, token] = authorization.split(" ") || [];
+    const [Bearer, token] = authorization.split(" ") || [];
 
-    if (!bearer || !token) 
+    if (!Bearer || !token) 
       throw BadRequestException({ message: "Invalid token" });
 
 
-    let signature = await getSignature ({ signatureLevel: SignatureEnum.User });
+    let signature = await getSignature ({ 
+      getSignatureLevel:  
+        Bearer === "Admin" ? SignatureEnum.Admin : SignatureEnum.User,
+     });
 
     const decoded = verifyToken({
       token,
@@ -29,13 +32,19 @@ export const decodedToken = async ({
       ? signature.accesssignature 
       : signature.refreshSignature,
     });
+    // ❌ لو التوكن بايظ
+   if (!decoded) throw UnauthorizedException({ message: "Invalid token ❌" });
+
+
+     console.log(decoded);
+    
 
     // check if token is revoked ----> logout
-    // if (await findOne({
-    //   model: TokenModel,
-    //   filter: { jti : decoded.jti}
-    // }))
-    //   throw UnauthorizedException({ message: "Token Is Revoked" });
+    if (await findOne({
+      model: TokenModel,
+      filter: { jti : decoded.jti}
+    }))
+      throw UnauthorizedException({ message: "Token Is Revoked" });
 
 
       const isRevoked = await get({
@@ -49,6 +58,9 @@ export const decodedToken = async ({
       model: UserModel,
       id: decoded.id,
     });
+
+    console.log(user);
+    
     if (!user) throw NotFoundException({ message: "Not Registered Account" });
 
     if (user.changeCredentialsTime?.getTime() > decoded.iat * 1000) 
@@ -80,9 +92,21 @@ export const authentication = ({tokenType = TokenTypeEnum.Access}) => {
             tokenType,
         })) || {};
         req.user = user;
+
         req.decoded = decoded;
+        
         return next();
     };
+};
+
+
+export const isPremiumUser = (req, res, next) => {
+  if (!req.user.isPremium) {
+    return next(
+      new Error("Upgrade to premium first", { cause: 403 })
+    );
+  }
+  next();
 };
 
 
@@ -106,81 +130,3 @@ export const authentication = ({tokenType = TokenTypeEnum.Access}) => {
 
 
 
-
-
-
-// export const decodeToken = async ({
-//   authorization,
-//   tokenType = TokenTypeEnum.Access,
-// }) => {
-//   if (!authorization) {
-//     throw BadRequestException({ message: "Missing authorization header" });
-//   }
-
-//   const [bearer, token] = authorization.split(" ") || [];
-
-//   if (!bearer || !token || bearer !== "User") {
-//     throw BadRequestException({ message: "Invalid token format" });
-//   }
-
-//   const signature = await getSignature({
-//     getSignatureLevel: SignatureEnum.User,
-//   });
-
-//   if (!signature) {
-//     throw BadRequestException({ message: "Signature not found" });
-//   }
-
-//   const decoded = verifyToken({
-//     token,
-//     secretKey:
-//       tokenType === TokenTypeEnum.Access
-//         ? signature.accesssignature
-//         : signature.refreshSignature,
-//   });
-
-//   if (!decoded || !decoded.id) {
-//     throw BadRequestException({ message: "Invalid token payload" });
-//   }
-
-//   const user = await findById({
-//     model: UserModel,
-//     id: decoded.id,
-//   });
-
-//   if (!user) {
-//     throw  NotFoundException({ message: "Not Registered Account" });
-//   }
-
-//   return user;
-// };
-
-// export const authentication = ({ tokenType }) => {
-//   return async (req, res, next) => {
-//     try {
-//       const user = await decodeToken({
-//         authorization: req.headers.authorization,
-//         tokenType,
-//       });
-
-//       req.user = user;
-
-//       return next();
-//     } catch (error) {
-//       return next(error);
-//     }
-//   };
-// };
-// export const authorization = ({ AccessRoles = [] }) => {
-//   return async (req, res, next) => {
-//     if (!req.user) {
-//       throw ForbiddenException({ message: "User not authenticated" });
-//     }
-
-//     if (!AccessRoles.includes(req.user.role)) {
-//       throw ForbiddenException({ message: "Unauthorized Access" });
-//     }
-
-//     return next();
-//   };
-// };

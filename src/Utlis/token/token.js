@@ -80,7 +80,7 @@ export const getNewLoginCredentials = async (user) => {
   });
   const jwtid = uuidv4();
   const accessToken = generateToken({
-    payload: { id: user._id },
+    payload: { id: user._id, role: user.role }, 
     secretKey: signature.accesssignature,
     options: { expiresIn: ACCESS_EXPIRES, jwtid},
   });
@@ -93,3 +93,4 @@ export const getNewLoginCredentials = async (user) => {
 
   return { accessToken, refreshToken };
 };
+
