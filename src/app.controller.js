@@ -81,7 +81,8 @@ const bootstrap = async (app, express) => {
   }));
   
   // تطبيق rate limit على كل الـ APIs
-  app.use("/api", customRateLimiter);  
+  // app.use(customRateLimiter);
+  
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -137,12 +138,14 @@ const bootstrap = async (app, express) => {
   app.get("/", (req, res) => {
   res.json({ message: "Backend is working 🚀" });
 });
- app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Server is running",
+  app.get("/api/health", (req, res) => {
+    res.json({
+      success: true,
+      message: "Server is running",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
   });
-});
 
   // ================================
   // ❌ 404 HANDLER (✅ تصحيح المسار)
