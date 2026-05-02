@@ -1,25 +1,26 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "allowJs": true,
     "checkJs": false,
     "strict": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
     "types": ["node"]
   },
   "include": [
-    "src/**/*",
-    "index.js"
-, "frontend"  ],
+    "src/**/*"
+  ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist"
   ]
 }

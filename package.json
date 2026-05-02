@@ -1,10 +1,12 @@
 {
-  "name": "sara7aapp-sat",
+  "name": "sara7a-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sara7a Backend API",
   "main": "index.js",
   "scripts": {
-    "dev": "node --watch index.js"
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "vercel-build": "npm install"
   },
   "keywords": [],
   "author": "",
@@ -36,5 +38,8 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
