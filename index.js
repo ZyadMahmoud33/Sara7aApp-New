@@ -1,13 +1,13 @@
 import express  from "express";
 import bootstrap from "./src/app.controller.js";
-import { PORT } from "./config/config.service.js";
-import chalk from "chalk";
 
 const app = express();
 app.use(express.json());
 await bootstrap(app,express);
 app.use("/uploads", express.static("uploads"));
-
+app.get("/", (req, res) => {
+  res.json({ message: "Backend is working 🚀" });
+});
 export default app;
 
 
