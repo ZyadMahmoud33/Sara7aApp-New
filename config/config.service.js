@@ -93,3 +93,5 @@ export const WHITE_LIST = process.env.WHITE_LIST;
 export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 export const CLIENT_URL = process.env.CLIENT_URL;
+
+console.log("DB_URI:", DB_URI);
