@@ -11,9 +11,5 @@
       "src": "/(.*)",
       "dest": "index.js"
     }
-  ],
-  "includeFiles": [
-    "config/**",
-    "src/**"
   ]
 }

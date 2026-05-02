@@ -7,7 +7,6 @@ const app = express();
 app.use(express.json());
 await bootstrap(app,express);
 app.use("/uploads", express.static("uploads"));
-app.listen(PORT, () => console.log(chalk.bgGreen.black(`Example app listening on port ${PORT}!`)));
 
 export default app;
 
