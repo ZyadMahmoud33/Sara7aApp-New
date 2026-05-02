@@ -81,7 +81,7 @@ const bootstrap = async (app, express) => {
   }));
   
   // تطبيق rate limit على كل الـ APIs
-  // app.use(customRateLimiter);
+  app.use(customRateLimiter);
   
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -90,7 +90,7 @@ const bootstrap = async (app, express) => {
   // 🗄️ DATABASE CONNECTIONS
   // ================================
   await connectDB();
-  // await connectRedis();
+  await connectRedis();
 
   // ================================
   // 📝 LOGGING (Morgan)
