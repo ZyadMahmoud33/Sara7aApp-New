@@ -17,6 +17,7 @@ const startServer = async () => {
         
         const PORT = process.env.PORT || 3000;
         console.log(`🔌 Attempting to listen on port ${PORT}...`);
+        console.log("PORT from env:", process.env.PORT);
         
         const server = app.listen(PORT, '0.0.0.0', () => {
             console.log(chalk.bgGreen(`✅ Server running on port ${PORT}!`));

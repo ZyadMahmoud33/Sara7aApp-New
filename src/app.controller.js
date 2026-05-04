@@ -57,12 +57,26 @@ import { corsOptions } from "./Utlis/cors/cors.util.js";
 import helmet from "helmet";
 import { attachRouterWithLogger } from "./Utlis/loggers/morgan.logger.js";
 import { customRateLimiter, adminRateLimiter, getRateLimitStats, unblockIp } from "./Middlewares/rateLimitter.middleware.js";
+import compression from "compression";
 
 const bootstrap = async (app, express) => {
     console.log("🚀 Starting bootstrap...");
     
     // ================================
     // 🔥 WEBHOOK (يحتاج raw body)
+
+        app.get("/", (req, res) => {
+        res.json({ message: "Backend is working 🚀" });
+    });
+    
+    app.get("/api/health", (req, res) => {
+        res.json({
+            success: true,
+            message: "Server is running",
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+        });
+    });
     // ================================
     app.post(
         "/api/user/webhook",
@@ -71,6 +85,7 @@ const bootstrap = async (app, express) => {
             next();
         }
     );
+   app.use(compression());
 
     // ================================
     // 🛡️ MIDDLEWARES الأساسية
@@ -101,7 +116,7 @@ const bootstrap = async (app, express) => {
 
     try {
         console.log("🔄 Connecting to Redis...");
-        // await connectRedis();
+        await connectRedis();
         console.log("✅ Redis connected successfully");
     } catch (error) {
         console.error("❌ Redis connection failed:", error.message);
@@ -154,18 +169,6 @@ const bootstrap = async (app, express) => {
     // ================================
     // 🏠 HEALTH CHECK ROUTE
     // ================================
-    app.get("/", (req, res) => {
-        res.json({ message: "Backend is working 🚀" });
-    });
-    
-    app.get("/api/health", (req, res) => {
-        res.json({
-            success: true,
-            message: "Server is running",
-            timestamp: new Date().toISOString(),
-            uptime: process.uptime(),
-        });
-    });
 
     // ================================
     // ❌ 404 HANDLER - ✅ التصحيح النهائي

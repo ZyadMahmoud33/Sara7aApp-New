@@ -13,14 +13,8 @@ import { getSignature, generateToken as generateToken2 } from "../../Utlis/token
 import { SignatureEnum, TokenTypeEnum, RoleEnum, ProviderEnum, LogoutTypeEnum } from "../../Utlis/enumes/user.enumes.js";
 import { ACCESS_EXPIRES } from "../../../config/config.service.js";
 import { OAuth2Client } from "google-auth-library";
-import { log, profile } from "node:console";
-import joi from "joi";
-import TokenModel from "../../DB/models/token.model.js";
 import { set } from "../../DB/redis.service.js";
 import { revokeTokenKey, ttl } from "../../DB/redis.service.js";
-import { sendEmail } from "../../Utlis/email/email.utils.js";
-import { emailSubject } from "../../Utlis/email/email.utils.js";
-import {customAlphabet} from "nanoid"
 import { generateOTP } from "../../Utlis/generateOtp.js";
 import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
 
