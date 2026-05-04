@@ -4,16 +4,37 @@ import chalk from "chalk";
 
 const app = express();
 
-// ✅ Static files الأول
+// ✅ Static files
 app.use("/uploads", express.static("uploads"));
 
-// ✅ بعد كده الـ bootstrap اللي فيه الـ routes
-await bootstrap(app, express);
+const startServer = async () => {
+    try {
+        console.log(chalk.blue("🚀 Starting server bootstrap..."));
+        
+        await bootstrap(app, express);
+        
+        console.log(chalk.green("✅ Bootstrap completed successfully"));
+        
+        const PORT = process.env.PORT || 3000;
+        
+        const server = app.listen(PORT, () => {
+            console.log(chalk.bgGreen(`✅ Server running on port ${PORT}!`));
+        });
+        
+        // Handle server errors
+        server.on('error', (err) => {
+            console.error(chalk.bgRed("❌ Server error:"), err);
+            process.exit(1);
+        });
+        
+    } catch (error) {
+        console.error(chalk.bgRed("❌ Failed to start server:"), error);
+        console.error(chalk.red("Error details:"), error.stack);
+        process.exit(1);
+    }
+};
 
-// ✅ PORT من environment أو 3000 لو local
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => console.log(chalk.bgGreen(`Server running on port ${PORT}!`)));
+startServer();
 
 
 /**
