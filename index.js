@@ -1,12 +1,19 @@
-import express  from "express";
+import express from "express";
 import bootstrap from "./src/app.controller.js";
-import { PORT } from "./config/config.service.js";
 import chalk from "chalk";
 
 const app = express();
-await bootstrap(app,express);
-app.listen(PORT, () => console.log(chalk.bgGreen(`Example app listening on port ${PORT}!`)));
+
+// ✅ Static files الأول
 app.use("/uploads", express.static("uploads"));
+
+// ✅ بعد كده الـ bootstrap اللي فيه الـ routes
+await bootstrap(app, express);
+
+// ✅ PORT من environment أو 3000 لو local
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => console.log(chalk.bgGreen(`Server running on port ${PORT}!`)));
 
 
 /**
