@@ -87,6 +87,7 @@ const bootstrap = async (app, express) => {
     );
    app.use(compression());
 
+
     // ================================
     // 🛡️ MIDDLEWARES الأساسية
     // ================================
