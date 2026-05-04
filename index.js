@@ -1,14 +1,41 @@
-import express  from "express";
+import express from "express";
 import bootstrap from "./src/app.controller.js";
+import chalk from "chalk";
+
+console.log("🚀 Script started");
 
 const app = express();
-app.use(express.json());
-await bootstrap(app,express);
+
+console.log("📁 Setting up static files...");
 app.use("/uploads", express.static("uploads"));
-app.get("/", (req, res) => {
-  res.json({ message: "Backend is working 🚀" });
-});
-export default app;
+
+const startServer = async () => {
+    try {
+        console.log("🔄 Calling bootstrap...");
+        await bootstrap(app, express);
+        console.log("✅ Bootstrap returned successfully");
+        
+        const PORT = process.env.PORT || 3001;
+        console.log(`🔌 Attempting to listen on port ${PORT}...`);
+        
+        const server = app.listen(PORT, '0.0.0.0', () => {
+            console.log(chalk.bgGreen(`✅ Server running on port ${PORT}!`));
+        });
+        
+        server.on('error', (err) => {
+            console.error(chalk.bgRed("❌ Server error:"), err);
+            process.exit(1);
+        });
+        
+    } catch (error) {
+        console.error(chalk.bgRed("❌ FATAL ERROR:"), error);
+        console.error(chalk.red("Stack trace:"), error.stack);
+        process.exit(1);
+    }
+};
+
+console.log("🏁 Calling startServer...");
+startServer();
 
 
 /**

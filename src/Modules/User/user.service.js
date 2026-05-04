@@ -199,21 +199,60 @@ export const updatePassword = async (req, res) => {
     message: "Password updated 🔥",
   });
 };
-
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_dummy_12345') {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  console.log("✅ Stripe initialized");
+} else {
+  console.warn("⚠️ Stripe not configured - payment features disabled");
+}
 // ======================================
 // 🚫 DISABLED (SECURITY)
 // ======================================
 // ❌ متستخدمش دي في production
-export const upgradePlan = async () => {
-  throw ForbiddenException({
-    message: "Direct upgrade not allowed ❌",
-  });
-};
+export const upgradePlan = async (req, res) => {
+  // ✅ التحقق من Stripe
+  if (!stripe) {
+    return res.status(503).json({
+      success: false,
+      message: "Payment service is temporarily unavailable"
+    });
+  }
 
+  const { plan } = req.body;
+  const prices = { pro: 200, premium: 500 };
+  
+  if (!plan || !prices[plan]) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid plan. Use 'pro' or 'premium'",
+    });
+  }
+  
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    line_items: [{
+      price_data: {
+        currency: "usd",
+        product_data: { name: `${plan.toUpperCase()} Plan` },
+        unit_amount: prices[plan],
+      },
+      quantity: 1,
+    }],
+    mode: "payment",
+    success_url: `${process.env.CLIENT_URL}/payment-success`,
+    cancel_url: `${process.env.CLIENT_URL}/premium`,
+    metadata: { userId: req.user._id.toString(), plan },
+  });
+  
+  return res.status(200).json({ success: true, url: session.url });
+};
 // ======================================
 // 💳 STRIPE
 // ======================================
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// ✅ اجعل Stripe اختيارياً
+
+
 
 // ======================================
 // 💳 CREATE CHECKOUT
