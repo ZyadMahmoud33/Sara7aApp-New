@@ -3407,4 +3407,3 @@
 ::1 - - [04/May/2026:16:57:49 +0000] "PATCH /api/auth/resend-otp HTTP/1.1" 200 47 "-" "PostmanRuntime/7.53.0"
 ::1 - - [04/May/2026:16:58:23 +0000] "PATCH /api/auth/resend-otp HTTP/1.1" 200 47 "-" "PostmanRuntime/7.53.0"
 ::1 - - [04/May/2026:16:58:49 +0000] "PATCH /api/auth/confirm-email HTTP/1.1" 200 52 "-" "PostmanRuntime/7.53.0"
-127.0.0.1 - - [04/May/2026:20:44:13 +0000] "GET /api/health HTTP/1.1" 200 105 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0"
