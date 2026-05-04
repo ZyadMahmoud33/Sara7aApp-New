@@ -101,7 +101,7 @@ const bootstrap = async (app, express) => {
 
     try {
         console.log("🔄 Connecting to Redis...");
-        await connectRedis();
+        // await connectRedis();
         console.log("✅ Redis connected successfully");
     } catch (error) {
         console.error("❌ Redis connection failed:", error.message);
