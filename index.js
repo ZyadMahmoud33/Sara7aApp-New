@@ -2,38 +2,39 @@ import express from "express";
 import bootstrap from "./src/app.controller.js";
 import chalk from "chalk";
 
+console.log("🚀 Script started");
+
 const app = express();
 
-// ✅ Static files
+console.log("📁 Setting up static files...");
 app.use("/uploads", express.static("uploads"));
 
 const startServer = async () => {
     try {
-        console.log(chalk.blue("🚀 Starting server bootstrap..."));
-        
+        console.log("🔄 Calling bootstrap...");
         await bootstrap(app, express);
-        
-        console.log(chalk.green("✅ Bootstrap completed successfully"));
+        console.log("✅ Bootstrap returned successfully");
         
         const PORT = process.env.PORT || 3000;
+        console.log(`🔌 Attempting to listen on port ${PORT}...`);
         
-        const server = app.listen(PORT, () => {
+        const server = app.listen(PORT, '0.0.0.0', () => {
             console.log(chalk.bgGreen(`✅ Server running on port ${PORT}!`));
         });
         
-        // Handle server errors
         server.on('error', (err) => {
             console.error(chalk.bgRed("❌ Server error:"), err);
             process.exit(1);
         });
         
     } catch (error) {
-        console.error(chalk.bgRed("❌ Failed to start server:"), error);
-        console.error(chalk.red("Error details:"), error.stack);
+        console.error(chalk.bgRed("❌ FATAL ERROR:"), error);
+        console.error(chalk.red("Stack trace:"), error.stack);
         process.exit(1);
     }
 };
 
+console.log("🏁 Calling startServer...");
 startServer();
 
 
