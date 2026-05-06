@@ -75,7 +75,7 @@ const bootstrap = async (app, express) => {
 
     // 5. Routes
     if (attachRouterWithLogger) {
-        attachRouterWithLogger(app, "/api", authRouter, "access.log");
+        attachRouterWithLogger(app, "/api/auth", authRouter, "access.log");
     }
 
     app.use("/uploads", express.static(path.resolve("./src/uploads")));

@@ -4,60 +4,67 @@ import * as authValidation from "./auth.validation.js";
 import { authentication } from "../../Middlewares/auth.middleware.js";
 import { TokenTypeEnum } from "../../Utlis/enumes/user.enumes.js";
 import { validation } from "../../Middlewares/validation.middleware.js";
-import joi from "joi";
-import { localFileUpload } from "../../Utlis/multer/local.multer.js";
 
 const router = Router();
 
 router.post("/signup",
+  authentication({ tokenType: TokenTypeEnum.Access }),
   validation(authValidation.signupSchema),
   authService.signup  
 );
 
 router.patch(
   "/confirm-email",
+  authentication({ tokenType: TokenTypeEnum.Access }),
   validation(authValidation.confirmEmailSchema),
   authService.confirmEmail
 );
 
 router.patch(
   "/resend-otp",
+  authentication({ tokenType: TokenTypeEnum.Access }),
   validation(authValidation.resendOtpSchema),
   authService.resendOtp
 );
 
 router.post("/login",
-   validation(authValidation.loginSchema),
-   authService.login,
+  authentication({ tokenType: TokenTypeEnum.Access }),
+  validation(authValidation.loginSchema),
+  authService.login
 );
 
 router.post(
   "/refresh-token",
   authentication({ tokenType: TokenTypeEnum.Refresh }),
+  validation(authValidation.refreshTokenSchema),
   authService.refreshToken
 );
 
 router.post("/social-login", authService.loginWithGoogle);
 
 router.post(
-  "/logout",
+  "/logout",  
   authentication({ tokenType: TokenTypeEnum.Access }),
+  validation(authValidation.logoutSchema),
   authService.logout
 );
 
 router.post(
   "/logout-with-redis",
   authentication({ tokenType: TokenTypeEnum.Access }),
+  validation(authValidation.logoutSchema),
   authService.logoutWithRedis
 );
 
 router.patch("/forget-password",
+  authentication({ tokenType: TokenTypeEnum.Access }),
   validation(authValidation.forgetPasswordSchema),
   authService.forgetPassword
 );
 
 router.patch(
   "/reset-password",
+  authentication({ tokenType: TokenTypeEnum.Access }),
   validation(authValidation.resetPasswordSchema),
   authService.resetPassword
 );
