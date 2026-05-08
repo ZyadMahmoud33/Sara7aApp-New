@@ -49,7 +49,7 @@ const bootstrap = async (app, express) => {
     
     // ⚠️ تنبيه: لو الـ Rate Limiter بيعتمد على Redis والـ Redis مش شغال، ممكن يوقف التسجيل.
     // يفضل استخدامه فقط لو متأكد من اتصال Redis.
-    // app.use(customRateLimiter);
+    app.use(customRateLimiter);
     
     app.use(express.json({ limit: "10mb" }));
     app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -74,9 +74,9 @@ const bootstrap = async (app, express) => {
     }
 
     // 5. Routes
-    // if (attachRouterWithLogger) {
-    //     attachRouterWithLogger(app, "/api/auth", authRouter, "access.log");
-    // }
+    if (attachRouterWithLogger) {
+        attachRouterWithLogger(app, "/api/auth", authRouter, "access.log");
+    }
 
     app.use("/uploads", express.static(path.resolve("./src/uploads")));
     
