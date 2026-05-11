@@ -87,11 +87,12 @@ export const USER_EMAIL = process.env.USER_EMAIL;
 export const USER_PASSWORD = process.env.USER_PASSWORD;
 
 // CORS
-export const WHITE_LIST = process.env.WHITE_LIST;
-
-// Stripe
+// CORS
+// CORS - الأفضل تكتبها كده
+export const WHITE_LIST = process.env.WHITE_LIST || "http://localhost:5173/api,https://sara7a-frontend.vercel.app";
 export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 export const CLIENT_URL = process.env.CLIENT_URL;
-
+console.log("🔍 process.env.WHITE_LIST =", process.env.WHITE_LIST);
+console.log("🔍 process.env.NODE_ENV =", process.env.NODE_ENV);
 console.log("DB_URI:", DB_URI);
