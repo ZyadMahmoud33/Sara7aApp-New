@@ -366,29 +366,61 @@ export const createManualPayment = async (req, res) => {
 };
 
 export const watchAd = async (req, res) => {
-  const user = req.user;
+  const freshUser = await UserModel.findById(req.user._id).select("coins dailyAdWatched lastAdWatchDate");
+  
+  if (!freshUser) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+
   const today = new Date().toDateString();
-  
-  // Check daily limit
-  if (user.lastAdWatchDate === today && user.dailyAdWatched >= 5) {
-    throw BadRequestException("Daily ad limit reached (5 ads per day)");
+  const lastWatch = freshUser.lastAdWatchDate 
+    ? new Date(freshUser.lastAdWatchDate).toDateString() 
+    : null;
+
+  // ✅ Reset لو يوم جديد
+  if (lastWatch !== today) {
+    freshUser.dailyAdWatched = 0;
+    freshUser.lastAdWatchDate = today;
   }
-  
-  // Reset counter if new day
-  if (user.lastAdWatchDate !== today) {
-    user.dailyAdWatched = 0;
-    user.lastAdWatchDate = today;
+
+  // ✅ تحقق من الليميت بعد الـ reset
+  if (freshUser.dailyAdWatched >= 5) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    return res.status(400).json({
+      success: false,
+      message: `Daily ad limit reached (5/5). Come back tomorrow!`,
+      data: {
+        dailyAdWatched: freshUser.dailyAdWatched,
+        remainingAds: 0,
+        canWatch: false,
+        nextReset: tomorrow,
+      }
+    });
   }
-  
-  // Add coins
-  user.coins += 5;
-  user.dailyAdWatched += 1;
-  await user.save();
-  
+
+  // ✅ أضف الكوين
+  freshUser.coins += 5;
+  freshUser.dailyAdWatched += 1;
+  await freshUser.save();
+
+  const remainingAds = 5 - freshUser.dailyAdWatched;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+
   return successResponse({
     res,
     message: "You earned 5 coins! 🎉",
-    data: { coins: user.coins, dailyAdWatched: user.dailyAdWatched },
+    data: { 
+      coins: freshUser.coins, 
+      dailyAdWatched: freshUser.dailyAdWatched,
+      remainingAds,
+      canWatch: remainingAds > 0,
+      nextReset: tomorrow,
+    },
   });
 };
 

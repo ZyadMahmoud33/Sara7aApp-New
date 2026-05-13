@@ -9,19 +9,23 @@ import * as userValidation from "./user.validation.js";
 
 const router = Router();
 
-router.get(
-    "/getuser", 
+// ✅ الترتيب الصح - الـ static routes الأول
+router.get("/getuser", 
     authentication({tokenType: TokenTypeEnum.Access}),
     authorization({AccessRoles: [RoleEnum.User, RoleEnum.Admin]}),
     userService.getprofile,
-
 );
-
-
 
 router.get("/profile/:username", userService.getUserByUsername);
 
-router.get("/:id", userService.getUserById);
+// ⚠️ لازم تضيف validation إن الـ id يكون ObjectId صح
+router.get("/:id", (req, res, next) => {
+    const { id } = req.params;
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+    }
+    next();
+}, userService.getUserById);
 
 // علق الـ validation line
 router.patch(
@@ -32,7 +36,7 @@ router.patch(
     customPath: "Users",
     validation: [...fileValidation.images],
   }).single("attachments"),
-  // validation(userValidation.updateProfilePicSchema), // ✅ علقها مؤقتاً
+  validation(userValidation.updateProfilePicSchema),
   userService.uploadProfilePic,
 );
 
@@ -97,6 +101,7 @@ router.post(
   "/watch-ad",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User] }),
+  // validation(userValidation.watchAdSchema),
   userService.watchAd
 );
 

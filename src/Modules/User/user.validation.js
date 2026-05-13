@@ -179,16 +179,20 @@ export const manualPaymentSchema = {
 
 export const updateProfileSchema = {
   body: Joi.object({
-    firstName: Joi.string().min(2).max(25).optional(),
-    lastName: Joi.string().min(2).max(25).optional(),
-    phone: Joi.string().optional(),
-    bio: Joi.string().max(500).optional(),
-    country: Joi.string().optional(),
-    address: Joi.string().optional(),
-    website: Joi.string().uri().optional(),
-    DOB: Joi.date().optional(),
-    gender: Joi.string().valid("male", "female", "other").optional(),
-  }),
+    firstName: Joi.string().min(2).max(25).optional().allow('', null),
+    lastName: Joi.string().min(2).max(25).optional().allow('', null),
+    phone: Joi.string().optional().allow('', null),
+    bio: Joi.string().max(500).optional().allow('', null),
+    country: Joi.string().optional().allow('', null),
+    city: Joi.string().optional().allow('', null),
+    address: Joi.string().optional().allow('', null),
+    website: Joi.string().uri().optional().allow('', null),
+    DOB: Joi.date().optional().allow('', null),
+    gender: Joi.alternatives().try(
+      Joi.string().valid("male", "female", "other"),
+      Joi.number().valid(0, 1, 2)
+    ).optional().allow(null, ''),
+  })
 };
 
 export const updatePersonalInfoSchema = {
@@ -196,4 +200,8 @@ export const updatePersonalInfoSchema = {
     firstName: Joi.string().min(2).max(25),
     lastName: Joi.string().min(2).max(25),
   }),
+};
+
+export const watchAdSchema = {
+  body: Joi.object({})  // ✅ مفيش حاجات مطلوبة
 };

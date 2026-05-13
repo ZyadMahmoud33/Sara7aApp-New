@@ -20,6 +20,7 @@ router.get(
   "/get-all-messages",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.Admin] }),
+  validation(messageValidation.getAllMessagesValidation),
   messageService.getAllMessages
 );
 
@@ -28,6 +29,7 @@ router.get(
   "/get-message-admin/:receiverId",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.Admin] }),
+  validation(messageValidation.getUserMessagesValidation),
   messageService.getUserMessages
 );
 
@@ -36,15 +38,19 @@ router.get(
   "/get-message",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User, RoleEnum.Admin] }),
+  validation(messageValidation.getMyMessagesValidation),
   messageService.getMessage
 );
 
 // ✅ NEW: Get single message by ID (with sender data if revealed)
-router.get(
-  "/:messageId",
+
+// like message
+router.patch(
+  "/:messageId/like",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User, RoleEnum.Admin] }),
-  messageService.getMessageById
+  validation(messageValidation.likeMessageValidation),
+  messageService.likeMessage
 );
 
 // reveal sender
@@ -52,22 +58,23 @@ router.patch(
   "/:messageId/reveal",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User, RoleEnum.Admin] }),
+  validation(messageValidation.revealSenderValidation),
   messageService.revealSender
 );
 
-// like message
-router.patch(
-  "/:messageId/like",
+router.get(
+  "/:messageId",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User, RoleEnum.Admin] }),
-  messageService.likeMessage
+  validation(messageValidation.getMessageByIdValidation),
+  messageService.getMessageById
 );
-
 // soft delete
-router.delete(
+router.get(
   "/message/:messageId",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User, RoleEnum.Admin] }),
+  validation(messageValidation.deleteMessageValidation),
   messageService.deleteMessage
 );
 
@@ -76,6 +83,7 @@ router.patch(
   "/message/:messageId/restore",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User, RoleEnum.Admin] }),
+  validation(messageValidation.restoreMessageValidation),
   messageService.restoreMessage
 );
 
@@ -84,6 +92,7 @@ router.delete(
   "/message/:messageId/force",
   authentication({ tokenType: TokenTypeEnum.Access }),
   authorization({ AccessRoles: [RoleEnum.User, RoleEnum.Admin] }),
+  validation(messageValidation.forceDeleteMessageValidation),
   messageService.forceDeleteMessage
 );
 

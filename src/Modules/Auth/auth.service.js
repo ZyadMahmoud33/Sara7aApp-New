@@ -20,6 +20,7 @@ import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
 
 
 
+
 export const signup = async (req, res) => {
   const { firstName, lastName, email, password, phone, age, confirmPassword  } = req.body;
   if (await findOne({ model: UserModel, filter: { email } }))
@@ -65,74 +66,144 @@ emailEvent.emit("confirmEmail", {to:email,  otp, firstName});
 };
 
 export const confirmEmail = async (req, res) => {
-    const { email, otp } = req.body;
-    const user = await findOne({ 
-      model: UserModel, 
-      filter: { 
-        email, 
-        confirmEmail: { $exists: false }, 
-        confirmEmailOtp: { $exists: true } ,
-      } 
-    });
-    if (!user)
-        throw NotFoundException({ message: "User Not Found" });
-    const isOtpValid = await compareHash({
-        plaintext: otp,
-        ciphertext: user.confirmEmailOtp,
-        algo: HashEnum.Argon,
-    });
-    if (!isOtpValid)
-        throw BadRequestException({ message: "Invalid otp" });
-      //update
-    await updateOne({ 
-      model: UserModel, 
-      filter: { email}, 
-      update: { confirmEmail: Date.now() , $unset: { confirmEmailOtp: true } },
-    });
-    return successResponse({
-        res, 
-        statusCode: 200, 
-        message: "Email confirmed successfully", 
-    });
+    try {
+        const { email, otp } = req.body;
+        
+        console.log("📥 Confirm Email - Email:", email);
+        console.log("🔢 OTP received:", otp);
+        
+        // ✅ تحقق من وجود البيانات
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and OTP are required ❌"
+            });
+        }
+        
+        const user = await findOne({ 
+            model: UserModel, 
+            filter: { 
+                email, 
+                confirmEmail: { $exists: false }, 
+                confirmEmailOtp: { $exists: true } ,
+            } 
+        });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found or already confirmed ❌"
+            });
+        }
+        
+        console.log("✅ User found:", user._id);
+        
+        // ✅ تأكد من وجود confirmEmailOtp
+        if (!user.confirmEmailOtp) {
+            return res.status(400).json({
+                success: false,
+                message: "No OTP found. Please request a new one 📧"
+            });
+        }
+        
+        const isOtpValid = await compareHash({
+            plaintext: otp,
+            ciphertext: user.confirmEmailOtp,
+            algo: HashEnum.Argon,
+        });
+        
+        console.log("🔍 OTP valid?", isOtpValid);
+        
+        if (!isOtpValid) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP ❌"
+            });
+        }
+        
+        await updateOne({ 
+            model: UserModel, 
+            filter: { email }, 
+            update: { 
+                confirmEmail: Date.now(),
+                $unset: { confirmEmailOtp: true } 
+            },
+        });
+        
+        console.log("✅ Email confirmed successfully!");
+        
+        return res.status(200).json({
+            success: true,
+            message: "Email confirmed successfully! ✅"
+        });
+        
+    } catch (error) {
+        console.error("❌ Confirm email error:", error);
+        console.error("Error stack:", error.stack);
+        
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Internal server error ❌",
+        });
+    }
 };
 
 export const resendOtp = async (req, res) => {
-  const { email } = req.body;
-
-  const user = await findOne({
-    model: UserModel,
-    filter: {
-      email,
-      confirmEmail: { $exists: false },
-    },
-  });
-  if (!user)
-    throw NotFoundException({ message: "User Not Found" });
-  // generate OTP
-  const otp = generateOTP();
-
-  const hashedOtp = await generateHash({
-    plaintext: otp,
-    algo: HashEnum.Argon,
-  });
-  await updateOne({
-    model: UserModel,
-    filter: { email },
-    update: {
-      confirmEmailOtp: hashedOtp,
-    },
-  });
-  // send email (نفس confirm بالظبط)
-  emailEventy.emit("resendOtp", {
-    to: user.email,
-    otp,
-    firstName: user.firstName,
-  });
-  return successResponse({
-    res,
-    statusCode: 200,
-    message: "OTP resent successfully",
-  });
+    try {
+        const { email } = req.body;
+        
+        console.log("📥 Resend OTP for:", email);
+        
+        const user = await findOne({
+            model: UserModel,
+            filter: {
+                email,
+                confirmEmail: { $exists: false },
+            },
+        });
+        
+        if (!user) {
+            throw new NotFoundException({ message: "User Not Found ❌" });
+        }
+        
+        // generate OTP
+        const otp = generateOTP();
+        console.log("🔢 New OTP generated:", otp);
+        
+        const hashedOtp = await generateHash({
+            plaintext: otp,
+            algo: HashEnum.Argon,
+        });
+        
+        await updateOne({
+            model: UserModel,
+            filter: { email },
+            update: {
+                confirmEmailOtp: hashedOtp,
+            },
+        });
+        
+        // send email
+        emailEventy.emit("resendOtp", {
+            to: user.email,
+            otp,
+            firstName: user.firstName,
+        });
+        
+        console.log("✅ OTP resent successfully to:", email);
+        
+        return successResponse({
+            res,
+            message: "OTP resent successfully! 📧",
+        });
+        
+    } catch (error) {
+        console.error("❌ Resend OTP error:", error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message,
+        });
+    }
 };
 
 export const login = async (req, res) => {

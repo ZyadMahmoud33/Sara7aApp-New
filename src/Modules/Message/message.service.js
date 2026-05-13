@@ -1,4 +1,4 @@
-import { create, find, findById } from "../../DB/models/database.repository.js";
+import { create, find, findById, findByIdAndUpdate } from "../../DB/models/database.repository.js";
 import UserModel from "../../DB/models/user.model.js";
 import {
   NotFoundException,
@@ -8,6 +8,7 @@ import {
 } from "../../Utlis/response/error.response.js";
 import MessageModel from "../../DB/models/message.model.js";
 import { successResponse } from "../../Utlis/response/succes.response.js";
+import mongoose from "mongoose";
 
 // =========================
 // 📩 SEND MESSAGE (معدل - يمنع الإرسال من غير تسجيل دخول)
@@ -70,7 +71,7 @@ export const getMessage = async (req, res) => {
     populate: [
       {
         path: "senderId",
-        select: "firstName lastName username profilePic _id",
+        select: "firstName lastName username profilePic email plan _id", // ✅ أضف email و plan
       },
       {
         path: "revealedBy",
@@ -89,6 +90,7 @@ export const getMessage = async (req, res) => {
       isRevealed: msg.isRevealed,
       isAnonymous: msg.isAnonymous,
       revealedAt: msg.revealedAt,
+      liked: msg.likedBy?.some(id => id.toString() === userId.toString()) || false, // ✅ أضف ده
     };
 
     // ✅ إذا تم الكشف، أظهر بيانات المرسل كاملة
@@ -118,28 +120,60 @@ export const getMessage = async (req, res) => {
   });
 };
 
+
 // =========================
-// ❤️ LIKE MESSAGE
+// ❤️ LIKE MESSAGE (معدل - يمنع تكرار اللايك)
 // =========================
 export const likeMessage = async (req, res) => {
-  const { messageId } = req.params;
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
 
-  const message = await findById({
-    model: MessageModel,
-    id: messageId,
-  });
+    const message = await findById({
+      model: MessageModel,
+      id: messageId,
+    });
 
-  if (!message)
-    throw NotFoundException({ message: "Message not found" });
+    if (!message)
+      throw NotFoundException({ message: "Message not found" });
 
-  message.likes = (message.likes || 0) + 1;
-  await message.save();
+    if (message.senderId && message.senderId.toString() === userId.toString()) {
+      throw BadRequestException({ message: "You cannot like your own message ❌" });
+    }
 
-  return successResponse({
-    res,
-    message: "Liked ❤️",
-    data: { likes: message.likes },
-  });
+    if (!message.likedBy) {
+      message.likedBy = [];
+    }
+
+    const alreadyLiked = message.likedBy.some(id => id.toString() === userId.toString());
+
+    if (alreadyLiked) {
+      const newLikes = Math.max(0, (message.likes || 0) - 1);
+      await MessageModel.findByIdAndUpdate(messageId, {
+        $pull: { likedBy: userId },
+        $set: { likes: newLikes }
+      });
+      return successResponse({
+        res,
+        message: "Like removed 💔",
+        data: { likes: newLikes, liked: false },
+      });
+    } else {
+      const newLikes = (message.likes || 0) + 1;
+      await MessageModel.findByIdAndUpdate(messageId, {
+        $addToSet: { likedBy: userId },
+        $set: { likes: newLikes }
+      });
+      return successResponse({
+        res,
+        message: "Liked! ❤️",
+        data: { likes: newLikes, liked: true },
+      });
+    }
+  } catch (error) {
+    console.error("❌ likeMessage error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 // =========================
@@ -209,7 +243,7 @@ export const revealSender = async (req, res) => {
     }
 
     const message = await MessageModel.findById(messageId)
-      .populate("senderId", "firstName lastName username profilePic _id");
+      .populate("senderId", "firstName lastName username profilePic email plan _id");
       
     if (!message) {
       return res.status(404).json({ success: false, message: "Message not found" });
@@ -223,7 +257,6 @@ export const revealSender = async (req, res) => {
       return res.status(400).json({ success: false, message: "Already revealed" });
     }
 
-    // ✅ منع الكشف إذا كان المرسل غير مسجل
     if (!message.senderId) {
       return res.status(400).json({ 
         success: false, 
@@ -234,31 +267,36 @@ export const revealSender = async (req, res) => {
 
     const REVEAL_COST = 5;
 
-    if (freshUser.plan === "pro") {
+    // ✅ خصم الكوين لأي plan مش premium
+    if (freshUser.plan !== "premium") {
       if (freshUser.coins < REVEAL_COST) {
         return res.status(400).json({ 
           success: false, 
           message: `Not enough coins! Need ${REVEAL_COST}, you have ${freshUser.coins}` 
         });
       }
-      
       freshUser.coins -= REVEAL_COST;
       await freshUser.save();
     }
 
+    // ✅ تحديث حالة الرسالة
     message.isRevealed = true;
     message.revealedBy = freshUser._id;
     message.revealedAt = new Date();
     await message.save();
 
+    // ✅ تجهيز بيانات المرسل
     const senderData = {
       _id: message.senderId._id,
       firstName: message.senderId.firstName,
       lastName: message.senderId.lastName,
       username: message.senderId.username,
       profilePic: message.senderId.profilePic,
+      email: message.senderId.email,
+      plan: message.senderId.plan,
     };
 
+    // ✅ الرد على العميل
     return res.status(200).json({
       success: true,
       message: freshUser.plan === "premium" 
@@ -273,7 +311,10 @@ export const revealSender = async (req, res) => {
 
   } catch (error) {
     console.error("Reveal error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 };
 
@@ -286,7 +327,7 @@ export const getMessageById = async (req, res) => {
     const userId = req.user._id;
 
     const message = await MessageModel.findById(messageId)
-      .populate("senderId", "firstName lastName username profilePic _id")
+      .populate("senderId", "firstName lastName username profilePic email plan _id")
       .populate("receiverId", "firstName lastName username")
       .populate("revealedBy", "firstName lastName username");
 

@@ -92,6 +92,8 @@ const router = Router();
 
 // 📝 إنشاء حساب جديد (مفتوح للكل - لا يحتاج Token)
 router.post("/signup",
+    authentication({ tokenType: TokenTypeEnum.Access }),
+    authorization({ AccessRoles: [RoleEnum.User] }),
     validation(authValidation.signupSchema),
     authService.signup  
 );
@@ -103,10 +105,11 @@ router.post("/login",
 );
 
 // 📧 تأكيد الإيميل (مفتوح للكل لأنه بيعتمد على الكود المرسل)
-router.patch(
+router.post(
     "/confirm-email",
     validation(authValidation.confirmEmailSchema),
     authService.confirmEmail
+
 );
 
 // 🔄 إعادة إرسال الـ OTP
@@ -130,6 +133,8 @@ router.post(
 router.post(
     "/logout",  
     authentication({ tokenType: TokenTypeEnum.Access }),
+    authorization({ AccessRoles: [RoleEnum.User] }),
+    validation(authValidation.logoutSchema),
     authService.logout
 );
 
