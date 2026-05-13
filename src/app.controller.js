@@ -41,7 +41,7 @@ const bootstrap = async (app, express) => {
    app.use(compression());
 
     // 3. Middlewares الأساسية
-    app.use(cors(corsOptions())); // تأكد إن corsOptions فيها رابط الفرونت بتاعك
+     app.use(cors(corsOptions()));
     app.use(helmet({
         crossOriginResourcePolicy: { policy: "cross-origin" },
         contentSecurityPolicy: false,
