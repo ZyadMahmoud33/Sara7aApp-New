@@ -41,8 +41,12 @@ const bootstrap = async (app, express) => {
    app.use(compression());
 
     // 3. Middlewares الأساسية
-     app.use(cors(corsOptions()));
-    app.use(helmet({
+app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+}));    app.use(helmet({
         crossOriginResourcePolicy: { policy: "cross-origin" },
         contentSecurityPolicy: false,
     }));
