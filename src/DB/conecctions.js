@@ -1,36 +1,38 @@
 import mongoose from "mongoose";
 import { DB_URI } from "../../config/config.service.js";
 
+let cached = global.mongoose;
+
+if (!cached) {
+    cached = global.mongoose = { conn: null, promise: null };
+}
+
 const connectDB = async () => {
-    try {
-        console.log("🔄 Connecting to MongoDB Atlas...");
-        
-        // إخفاء الباسورد من الـ log
-        const maskedUri = DB_URI?.replace(/\/\/.*@/, '//***:***@');
-        console.log("DB_URI =", maskedUri);
+    // لو الاتصال موجود، رجّعه على طول
+    if (cached.conn) {
+        return cached.conn;
+    }
 
-        await mongoose.connect(DB_URI, {
-            serverSelectionTimeoutMS: 120000,    // 120 ثانية كمان
-            socketTimeoutMS: 180000,             // 3 دقائق
-            connectTimeoutMS: 120000,            // 2 دقيقة
-            heartbeatFrequencyMS: 30000,
-            maxPoolSize: 5,                      // قلل pool size
-            minPoolSize: 1,
+    // لو في promise شغال، استنى عليه
+    if (!cached.promise) {
+        cached.promise = mongoose.connect(DB_URI, {
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 30000,
+            connectTimeoutMS: 10000,
+            maxPoolSize: 10,
             retryWrites: true,
-            retryReads: true,
-            family: 4,                           // استخدم IPv4 بس
+            family: 4,
         });
+    }
 
-        console.log("✅ MongoDB Atlas connected successfully");
-        
-        mongoose.connection.on('error', (err) => {
-            console.error("❌ MongoDB error:", err.message);
-        });
-
+    try {
+        cached.conn = await cached.promise;
+        console.log("✅ MongoDB connected");
+        return cached.conn;
     } catch (error) {
-        console.error("❌ MongoDB connection error:", error.message);
-        console.log("⚠️ Retrying connection in 15 seconds...");
-        setTimeout(connectDB, 15000);
+        cached.promise = null;
+        console.error("❌ MongoDB error:", error.message);
+        throw error;
     }
 };
 
