@@ -45,7 +45,7 @@ export const signup = async (req, res) => {
       email,
       age,
       password: hashedPassword,
-      confirmPassword: hashedPassword,
+      confirmPassword,
       phone: encryptedData,
       confirmEmailOtp: hashedOtp,
     },

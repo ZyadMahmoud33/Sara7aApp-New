@@ -6,10 +6,18 @@ export const signupSchema = {
     firstName: generalFilds.firstName.required(),
     lastName: generalFilds.lastName.required(),
     email: generalFilds.email.required(),
-    age: generalFilds.age,
+    age: generalFilds.age.required(),
     password: generalFilds.password.required(),
-    confirmPassword: generalFilds.confirmPassword,
-    phone: generalFilds.phone,
+    confirmPassword: joi.string().valid(joi.ref("password")).required().messages({
+      "any.only": "Passwords do not match",
+      "any.required": "Confirm password is required",
+    }),
+    phone: generalFilds.phone.required(),
+    gender: generalFilds.gender.optional(),
+    DOB: generalFilds.DOB.optional(),
+    country: generalFilds.country.optional(),
+    address: generalFilds.address.optional(),
+    bio: generalFilds.bio.optional(),
   }),
 };
 
