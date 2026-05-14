@@ -3,36 +3,49 @@ import { BadRequestException } from "../response/error.response.js";
 
 export function corsOptions() {
     const whiteListString = WHITE_LIST || "http://localhost:5173,https://sara7a-frontend.vercel.app";
-    const whiteList = whiteListString.split(",").map(origin => origin.trim()); // ✅ Trim المسافات
+    const whiteList = whiteListString.split(",").map(origin => origin.trim().replace(/\/$/, ''));
     
     console.log("🛡️ CORS Whitelist:", whiteList);
     
     const corsOptions = {
         origin: function(origin, callback) {
-            // السماح لـ Postman وغيرها
+            // السماح لـ Postman والـ server-side requests
             if (!origin) {
+                console.log("✅ No origin (Postman/server) allowed");
                 return callback(null, true);
             }
             
-            // ✅ مقارنة بالضبط
-            if (whiteList.indexOf(origin) !== -1) {
+            const normalizedOrigin = origin.replace(/\/$/, '');
+            
+            // السماح لكل localhost ports (للتطوير)
+            if (normalizedOrigin.match(/^http:\/\/localhost:\d+$/)) {
+                console.log(`✅ CORS allowed (localhost): ${normalizedOrigin}`);
                 return callback(null, true);
             }
             
-            // ✅ لو لسه مش شغال، جرب تقارن بدون trailing slash
-            const originNormalized = origin.replace(/\/$/, '');
-            if (whiteList.indexOf(originNormalized) !== -1) {
+            // السماح لكل الـ vercel domains
+            if (normalizedOrigin.match(/^https:\/\/.*\.vercel\.app$/)) {
+                console.log(`✅ CORS allowed (vercel): ${normalizedOrigin}`);
+                return callback(null, true);
+            }
+            
+            // التحقق من الـ white list
+            if (whiteList.includes(normalizedOrigin)) {
+                console.log(`✅ CORS allowed (whitelist): ${normalizedOrigin}`);
                 return callback(null, true);
             }
             
             console.log(`❌ CORS blocked: ${origin}`);
-            return callback(new Error('Not allowed by CORS'), false);
+            return callback(new Error(`Origin ${origin} not allowed by CORS`), false);
         },
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
         exposedHeaders: ["Authorization"],
         optionsSuccessStatus: 200,
+        preflightContinue: false,
+        maxAge: 86400,
     };
+    
     return corsOptions;
 }

@@ -117,7 +117,16 @@
 // };
 
 // backend/src/DB/redis.service.js
-import { redisClient } from "./redis.connection.js";
+import { redisClient, isRedisReady } from "./redis.connection.js";
+
+// Guard مشترك
+const checkReady = (operation) => {
+  if (!isRedisReady()) {
+    console.warn(`Redis ${operation}: client not ready, skipping`);
+    return false;
+  }
+  return true;
+};
 
 export const revokeTokenKeyPrefix = ({ userId }) => {
   return `user:revokeToken:${userId}`;
@@ -127,14 +136,10 @@ export const revokeTokenKey = ({ userId, jti }) => {
   return `${revokeTokenKeyPrefix({ userId })}:${jti}`;
 };
 
-// ================================
-// ✅ SET (يدعم object و params عادية)
-// ================================
 export const set = async (keyOrObj, valueOrNull, ttlOrNull = null) => {
+  if (!checkReady("set")) return false;  // ← الإضافة
   try {
     let key, value, ttl;
-    
-    // Support both {key, value, ttl} object and (key, value, ttl) params
     if (typeof keyOrObj === 'object') {
       key = keyOrObj.key;
       value = keyOrObj.value;
@@ -144,7 +149,6 @@ export const set = async (keyOrObj, valueOrNull, ttlOrNull = null) => {
       value = valueOrNull;
       ttl = ttlOrNull;
     }
-    
     if (!key || key === 'undefined') {
       console.error("Redis set: invalid key", key);
       return false;
@@ -153,51 +157,35 @@ export const set = async (keyOrObj, valueOrNull, ttlOrNull = null) => {
       console.error("Redis set: invalid value", value);
       return false;
     }
-    
     const data = typeof value !== "string" ? JSON.stringify(value) : value;
-    
     if (ttl && typeof ttl === 'number' && ttl > 0) {
       return await redisClient.setEx(key, ttl, data);
     } else {
       return await redisClient.set(key, data);
     }
   } catch (error) {
-    console.log("Redis Set Error:", error);
+    console.log("Redis Set Error:", error.message);
     return false;
   }
 };
 
-// ================================
-// ✅ GET (يدعم object و params عادية)
-// ================================
-export const get = async (keyOrObj, keyValue = null) => {
+export const get = async (keyOrObj) => {
+  if (!checkReady("get")) return null;  // ← الإضافة
   try {
-    let key;
-    
-    // Support both {key} object and (key) param
-    if (typeof keyOrObj === 'object') {
-      key = keyOrObj.key;
-    } else {
-      key = keyOrObj;
-    }
-    
+    const key = typeof keyOrObj === 'object' ? keyOrObj.key : keyOrObj;
     if (!key || key === 'undefined') {
       console.error("Redis get: invalid key", key);
       return null;
     }
-    
-    const data = await redisClient.get(key);
-    return data;
+    return await redisClient.get(key);
   } catch (error) {
-    console.log("Redis Get Error:", error);
+    console.log("Redis Get Error:", error.message);
     return null;
   }
 };
 
-// ================================
-// ✅ UPDATE
-// ================================
 export const update = async ({ key, value, ttl = null }) => {
+  if (!checkReady("update")) return false;  // ← الإضافة
   try {
     const isExists = await redisClient.exists(key);
     if (!isExists) return false;
@@ -208,87 +196,68 @@ export const update = async ({ key, value, ttl = null }) => {
       return await redisClient.set(key, data);
     }
   } catch (error) {
-    console.log("Redis Update Error:", error);
+    console.log("Redis Update Error:", error.message);
     return false;
   }
 };
 
-// ================================
-// ✅ DELETE
-// ================================
 export const del = async ({ key }) => {
+  if (!checkReady("del")) return false;  // ← الإضافة
   try {
     const isExists = await redisClient.exists(key);
     if (!isExists) return false;
     return await redisClient.del(key);
   } catch (error) {
-    console.log("Redis Delete Error:", error);
+    console.log("Redis Delete Error:", error.message);
     return false;
   }
 };
 
-// ================================
-// ✅ EXPIRE
-// ================================
 export const expire = async ({ key, ttl }) => {
+  if (!checkReady("expire")) return false;  // ← الإضافة
   try {
     const isExists = await redisClient.exists(key);
     if (!isExists) return false;
     return await redisClient.expire(key, ttl);
   } catch (error) {
-    console.log("Redis Expire Error:", error);
+    console.log("Redis Expire Error:", error.message);
     return false;
   }
 };
 
-// ================================
-// ✅ TTL
-// ================================
 export const ttl = async ({ key }) => {
+  if (!checkReady("ttl")) return false;  // ← الإضافة
   try {
     const isExists = await redisClient.exists(key);
     if (!isExists) return false;
     return await redisClient.ttl(key);
   } catch (error) {
-    console.log("Redis TTL Error:", error);
+    console.log("Redis TTL Error:", error.message);
     return false;
   }
 };
 
-// ================================
-// ✅ KEYS
-// ================================
 export const keys = async ({ pattern }) => {
+  if (!checkReady("keys")) return [];  // ← الإضافة
   try {
     return await redisClient.keys(pattern);
   } catch (error) {
-    console.log("Redis Keys Error:", error);
+    console.log("Redis Keys Error:", error.message);
     return [];
   }
 };
 
-// ================================
-// ✅ INCR (يدعم object و params عادية)
-// ================================
-export const incr = async (keyOrObj, keyValue = null) => {
+export const incr = async (keyOrObj) => {
+  if (!checkReady("incr")) return null;  // ← الإضافة
   try {
-    let key;
-    
-    // Support both {key} object and (key) param
-    if (typeof keyOrObj === 'object') {
-      key = keyOrObj.key;
-    } else {
-      key = keyOrObj;
-    }
-    
+    const key = typeof keyOrObj === 'object' ? keyOrObj.key : keyOrObj;
     if (!key || key === 'undefined') {
       console.error("Redis incr: invalid key", key);
       return null;
     }
-    
     return await redisClient.incr(key);
   } catch (error) {
-    console.log("Redis INCR Error:", error);
+    console.log("Redis INCR Error:", error.message);
     return null;
   }
 };
