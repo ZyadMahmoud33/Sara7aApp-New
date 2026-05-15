@@ -91,12 +91,12 @@ import { validation } from "../../Middlewares/validation.middleware.js";
 const router = Router();
 
 // 📝 إنشاء حساب جديد (مفتوح للكل - لا يحتاج Token)
+// ✅ من غير authentication و authorization
 router.post("/signup",
-    authentication({ tokenType: TokenTypeEnum.Access }),
-    authorization({ AccessRoles: [RoleEnum.User] }),
-    validation(authValidation.signupSchema),
-    authService.signup  
-);
+     validation(authValidation.signupSchema),
+      authService.signup
+    );
+
 
 // 🔑 تسجيل الدخول (مفتوح للكل - هو اللي بيولد الـ Token)
 router.post("/login",

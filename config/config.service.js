@@ -63,7 +63,7 @@ if (NODE_ENV !== 'production') {
 
 // ✅ في Vercel، استخدم process.env مباشرة
 export const PORT = process.env.PORT || 5000;
-export const DB_URI = process.env.MONGODB_URI || process.env.DB_URL;
+export const DB_URI = process.env.MONGODB_URI || process.env.DB_URL || process.env.DB_URI;
 export const SALT = parseInt(process.env.SALT) || 12;
 export const ENCRYPTION_SECRET = process.env.ENCRYPTION_KEY;
 
