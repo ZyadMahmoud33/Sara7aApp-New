@@ -22,46 +22,54 @@ import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
 
 
 export const signup = async (req, res) => {
-  const { firstName, lastName, email, password, phone, age, confirmPassword  } = req.body;
-  if (await findOne({ model: UserModel, filter: { email } }))
-    throw ConflictException({ message: "User already exists" });
-  const hashedPassword = await generateHash({
-    plaintext: password,
-    algo: HashEnum.Argon,
-  });
-  const encryptedData = await encrypt(phone);
-  const otp = generateOTP(); // otp math
-  // const otp = customAlphabet('abcdefghjklmn1234567890', 6)();
-   const hashedOtp = await generateHash({
-    plaintext: JSON.stringify(otp),
-    algo: HashEnum.Argon,
-  });
-  const user = await create({
-  model: UserModel,
-  data: [
-    {
-      firstName,
-      lastName,
-      email,
-      age,
-      password: hashedPassword,
-      phone: encryptedData,
-      confirmEmailOtp: hashedOtp,
-    },
-  ],
-});
-const emailData = {
-  to: user.email,
-  otp: otp,
-  firstName: user.firstName,
-};
-emailEvent.emit("confirmEmail", {to:email,  otp, firstName});
-  return successResponse({
-    res, 
-    statusCode: 201, 
-    message: "User created successfully", 
-    data: { user },
-  });
+  try {
+    const { firstName, lastName, email, password, phone, age, confirmPassword } = req.body;
+    
+    // تأكد إن الباسووردات متطابقة
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+    
+    if (await findOne({ model: UserModel, filter: { email } }))
+      return res.status(409).json({ message: "User already exists" });
+      
+    const hashedPassword = await generateHash({
+      plaintext: password,
+      algo: HashEnum.Argon,
+    });
+    
+    const encryptedData = await encrypt(phone);
+    const otp = generateOTP();
+    const hashedOtp = await generateHash({
+      plaintext: JSON.stringify(otp),
+      algo: HashEnum.Argon,
+    });
+    
+    const user = await create({
+      model: UserModel,
+      data: [{
+        firstName,
+        lastName,
+        email,
+        age,
+        password: hashedPassword,
+        phone: encryptedData,
+        confirmEmailOtp: hashedOtp,
+      }],
+    });
+    
+    emailEvent.emit("confirmEmail", { to: email, otp, firstName });
+    
+    return res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      data: { user: { id: user._id, email: user.email } },
+    });
+    
+  } catch (error) {
+    console.error("Signup error:", error);
+    return res.status(500).json({ message: error.message });
+  }
 };
 
 export const confirmEmail = async (req, res) => {
