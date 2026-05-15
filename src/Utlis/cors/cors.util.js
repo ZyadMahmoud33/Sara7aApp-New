@@ -2,8 +2,8 @@ import { WHITE_LIST } from "../../../config/config.service.js";
 import { BadRequestException } from "../response/error.response.js";
 
 export function corsOptions() {
-const whiteListString = WHITE_LIST || "http://localhost:5173,https://sara7a-frontend.vercel.app";
-const whiteList = whiteListString.split(",").map(origin => origin.trim().replace(/\/$/, ''));
+    const whiteListString = WHITE_LIST || "http://localhost:5173,https://sara7a-frontend.vercel.app";
+    const whiteList = whiteListString.split(",").map(origin => origin.trim().replace(/\/$/, ''));
     
     console.log("🛡️ CORS Whitelist:", whiteList);
     
@@ -26,6 +26,12 @@ const whiteList = whiteListString.split(",").map(origin => origin.trim().replace
             // السماح لكل الـ vercel domains
             if (normalizedOrigin.match(/^https:\/\/.*\.vercel\.app$/)) {
                 console.log(`✅ CORS allowed (vercel): ${normalizedOrigin}`);
+                return callback(null, true);
+            }
+            
+            // السماح لكل الـ railway domains (للتطوير)
+            if (normalizedOrigin.match(/^https:\/\/.*\.up\.railway\.app$/)) {
+                console.log(`✅ CORS allowed (railway): ${normalizedOrigin}`);
                 return callback(null, true);
             }
             
