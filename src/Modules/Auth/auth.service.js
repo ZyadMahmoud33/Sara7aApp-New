@@ -170,7 +170,11 @@ export const resendOtp = async (req, res) => {
         });
         
         if (!user) {
-            throw new NotFoundException({ message: "User Not Found ❌" });
+            // ✅ استخدم return مع status 404 بدل throw
+            return res.status(404).json({
+                success: false,
+                message: "User Not Found ❌"
+            });
         }
         
         // generate OTP
@@ -206,9 +210,9 @@ export const resendOtp = async (req, res) => {
         
     } catch (error) {
         console.error("❌ Resend OTP error:", error);
-        return res.status(error.statusCode || 500).json({
+        return res.status(500).json({
             success: false,
-            message: error.message,
+            message: error.message || "Internal server error",
         });
     }
 };
