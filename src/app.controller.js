@@ -20,6 +20,10 @@ const bootstrap = async (app, express) => {
     app.get("/", (req, res) => {
         res.json({ message: "Backend is working 🚀" });
     });
+
+    app.get("/api/test", (req, res) => {
+    res.json({ message: "API test is working!" });
+});
     
     app.get("/api/health", (req, res) => {
         res.json({
