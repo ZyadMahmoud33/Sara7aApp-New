@@ -159,47 +159,45 @@ export const resendOtp = async (req, res) => {
     try {
         const { email } = req.body;
 
-        if (!email) 
-            throw  BadRequestException({ message: "Email is required 📧" });
-        
+        if (!email) {
+            return res.status(400).json({ message: "Email is required 📧" });
+        }
 
         console.log("📥 Resend OTP request for:", email);
 
-        // 1. البحث عن المستخدم (التأكد أنه مسجل ولم يفعل الحساب بعد)
-        // ملاحظة: استبدلت findOne بـ UserModel.findOne لو كنت تستخدم Mongoose مباشرة
-        const user = await UserModel.findOne({
-            email: email.toLowerCase(),
-            confirmEmail: { $exists: false }, // التأكد أن الحساب لم يتم تفعيله بعد
+        // ✅ استخدم findOne من الـ repository
+        const user = await findOne({
+            model: UserModel,
+            filter: {
+                email: email.toLowerCase(),
+                confirmEmail: { $exists: false },
+            }
         });
 
-        if (!user) 
-            // ملاحظة أمنية: يفضل أحياناً عدم إخبار المخترق إذا كان الإيميل موجود أم لا
-            // لكن في مرحلة الـ Resend، نستخدم NotFoundException بشكل طبيعي
-            throw  NotFoundException({ message: "User Not Found or already confirmed ❌" });
-        
+        if (!user) {
+            return res.status(404).json({ message: "User Not Found or already confirmed ❌" });
+        }
 
-        // 2. توليد OTP جديد
+        // توليد OTP جديد
         const otp = generateOTP();
         console.log(`🔢 New OTP generated for ${email}:`, otp);
 
-        // 3. تشفير الـ OTP الجديد
+        // تشفير الـ OTP الجديد
         const hashedOtp = await generateHash({
-            plaintext: otp,
+            plaintext: otp.toString(),
             algo: HashEnum.Argon,
         });
 
-        // 4. تحديث المستخدم بالـ OTP الجديد وتحديث تاريخ الإرسال (اختياري للتحكم في وقت الصلاحية)
-        await UserModel.updateOne(
-            { email: email.toLowerCase() },
-            { 
-                $set: { 
-                    confirmEmailOtp: hashedOtp,
-                    otpUpdatedAt: new Date() // مفيد لإضافة Limit للإرسال لاحقاً
-                } 
+        // ✅ استخدم updateOne من الـ repository
+        await updateOne({
+            model: UserModel,
+            filter: { email: email.toLowerCase() },
+            update: {
+                confirmEmailOtp: hashedOtp,
             }
-        );
+        });
 
-        // 5. إرسال الإيميل (استخدام EventEmitter)
+        // إرسال الإيميل
         emailEventy.emit("resendOtp", {
             to: user.email,
             otp,
@@ -215,16 +213,12 @@ export const resendOtp = async (req, res) => {
 
     } catch (error) {
         console.error("❌ Resend OTP error:", error);
-        
-        // التعامل مع الخطأ بشكل يضمن عدم تعطل السيرفر
-        const statusCode = error.statusCode || 500;
-        return res.status(statusCode).json({
+        return res.status(500).json({
             success: false,
             message: error.message || "Internal Server Error",
         });
     }
 };
-
 export const login = async (req, res) => {
     const { email, password } = req.body;
     const user = await findOne({ 
