@@ -2,7 +2,7 @@ import { WHITE_LIST } from "../../../config/config.service.js";
 import { BadRequestException } from "../response/error.response.js";
 
 export function corsOptions() {
-    const whiteListString = WHITE_LIST || "http://localhost:5173,https://sara7a-frontend.vercel.app";
+const whiteListString = WHITE_LIST || "http://localhost:5173,https://sara7a-frontend.vercel.app,https://sara7a-frontend.vercel.app";
     const whiteList = whiteListString.split(",").map(origin => origin.trim().replace(/\/$/, ''));
     
     console.log("🛡️ CORS Whitelist:", whiteList);
