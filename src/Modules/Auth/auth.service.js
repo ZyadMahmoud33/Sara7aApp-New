@@ -158,67 +158,71 @@ export const confirmEmail = async (req, res) => {
 export const resendOtp = async (req, res) => {
     try {
         const { email } = req.body;
-
+        
         if (!email) {
-            return res.status(400).json({ message: "Email is required 📧" });
+            return res.status(400).json({
+                success: false,
+                message: "Email is required 📧"
+            });
         }
-
-        console.log("📥 Resend OTP request for:", email);
-
-        // ✅ استخدم findOne من الـ repository
+        
+        console.log("📥 Resend OTP for:", email);
+        
         const user = await findOne({
             model: UserModel,
             filter: {
                 email: email.toLowerCase(),
                 confirmEmail: { $exists: false },
-            }
+            },
         });
-
+        
         if (!user) {
-            return res.status(404).json({ message: "User Not Found or already confirmed ❌" });
+            return res.status(404).json({
+                success: false,
+                message: "User Not Found or already confirmed ❌"
+            });
         }
-
-        // توليد OTP جديد
+        
+        // generate OTP
         const otp = generateOTP();
-        console.log(`🔢 New OTP generated for ${email}:`, otp);
-
-        // تشفير الـ OTP الجديد
+        console.log("🔢 New OTP generated:", otp);
+        
         const hashedOtp = await generateHash({
             plaintext: otp.toString(),
             algo: HashEnum.Argon,
         });
-
-        // ✅ استخدم updateOne من الـ repository
+        
         await updateOne({
             model: UserModel,
             filter: { email: email.toLowerCase() },
             update: {
                 confirmEmailOtp: hashedOtp,
-            }
+            },
         });
-
-        // إرسال الإيميل
+        
+        // send email
         emailEventy.emit("resendOtp", {
             to: user.email,
             otp,
             firstName: user.firstName,
         });
-
+        
         console.log("✅ OTP resent successfully to:", email);
-
+        
         return successResponse({
             res,
-            message: "OTP resent successfully! Please check your inbox 📧",
+            message: "OTP resent successfully! 📧",
         });
-
+        
     } catch (error) {
         console.error("❌ Resend OTP error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message || "Internal Server Error",
+            message: error.message || "Internal server error",
         });
     }
 };
+
 export const login = async (req, res) => {
     const { email, password } = req.body;
     const user = await findOne({ 
