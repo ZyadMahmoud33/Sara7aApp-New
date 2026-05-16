@@ -40,31 +40,86 @@
 import nodemailer from "nodemailer";
 import { USER_EMAIL, USER_PASSWORD } from "../../../config/config.service.js";
 
-export async function sendEmail({ to="", subject="", text="", html="", cc="", bcc="", attachments=[] }) {
-    // 🚀 Logging mode - بيظهر OTP في الـ logs
-    const otpMatch = html.match(/\d{6}/);
-    const otp = otpMatch ? otpMatch[0] : 'N/A';
-    
-    console.log(`\n📧 ========== EMAIL (LOG MODE) ==========`);
-    console.log(`📧 To: ${to}`);
-    console.log(`📧 Subject: ${subject}`);
-    console.log(`🔐 OTP: ${otp}`);
-    console.log(`=========================================\n`);
-    
-    // 💡 لو حابب تجرب الإيميل الحقيقي، علّق السطرين دول
-    /*
+// ============================================================
+// 🚀 ADVANCED EMAIL SYSTEM FOR RAILWAY
+// ============================================================
+
+// محاولات متعددة مع fallback
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
+
+// تأخير بين المحاولات
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// دالة إرسال مع إعادة المحاولة
+async function sendWithRetry(transporter, mailOptions, attempt = 1) {
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        return { success: true, info };
+    } catch (error) {
+        console.error(`❌ Attempt ${attempt} failed:`, error.message);
+        
+        if (attempt < MAX_RETRIES) {
+            console.log(`🔄 Retrying in ${RETRY_DELAY}ms...`);
+            await sleep(RETRY_DELAY);
+            return sendWithRetry(transporter, mailOptions, attempt + 1);
+        }
+        
+        return { success: false, error };
+    }
+}
+
+export async function sendEmail({ to = "", subject = "", text = "", html = "", cc = "", bcc = "", attachments = [] }) {
+    // التحقق من صحة الإيميل
+    if (!to || !to.includes("@")) {
+        console.error("❌ Invalid email address:", to);
+        return { success: false, error: "Invalid email" };
+    }
+
+    // محاولة استخدام Gmail SMTP
     const transporter = nodemailer.createTransport({
         service: "gmail",
-        auth: { user: USER_EMAIL, pass: USER_PASSWORD },
+        auth: {
+            user: USER_EMAIL,
+            pass: USER_PASSWORD,
+        },
+        // إعدادات إضافية للموثوقية
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
     });
-    const info = await transporter.sendMail({
-        from: `"Sara7a Team" <${USER_EMAIL}>`,
-        to, subject, text, html, attachments, cc, bcc,
-    });
-    console.log("Message sent: %s", info.messageId);
-    */
+
+    const mailOptions = {
+        from: `"Sara7a" <${USER_EMAIL}>`,
+        to,
+        subject,
+        text,
+        html,
+        cc,
+        bcc,
+        attachments,
+    };
+
+    console.log(`📧 Sending email to: ${to}`);
     
-    return { messageId: `log-mode-${Date.now()}` };
+    const result = await sendWithRetry(transporter, mailOptions);
+    
+    if (result.success) {
+        console.log(`✅ Email sent successfully: ${result.info.messageId}`);
+        return result.info;
+    } else {
+        console.error(`❌ Failed to send email after ${MAX_RETRIES} attempts`);
+        
+        // Emergency log - show OTP in logs
+        const otpMatch = html?.match(/\d{6}/);
+        const otp = otpMatch ? otpMatch[0] : 'N/A';
+        console.log(`\n🔐 ========== EMERGENCY OTP ==========`);
+        console.log(`📧 To: ${to}`);
+        console.log(`🔑 OTP: ${otp}`);
+        console.log(`=====================================\n`);
+        
+        throw result.error;
+    }
 }
 
 export const emailSubject = {
