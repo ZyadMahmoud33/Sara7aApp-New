@@ -1,11 +1,14 @@
 import express from "express";
 import bootstrap from "./src/app.controller.js";
 import chalk from "chalk";
+import { initSocket } from "./src/socket.js";
+import http from "http";
 
 console.log("🚀 Script started");
 
 const app = express();
-
+const server = http.createServer(app);
+const io = initSocket(server);
 console.log("📁 Setting up static files...");
 app.use("/uploads", express.static("uploads"));
 
@@ -19,7 +22,7 @@ const startServer = async () => {
         console.log(`🔌 Attempting to listen on port ${PORT}...`);
         console.log("PORT from env:", process.env.PORT);
         
-        const server = app.listen(PORT, '0.0.0.0', () => {
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(chalk.bgGreen(`✅ Server running on port ${PORT}!`));
         });
         
