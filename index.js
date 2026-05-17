@@ -1,55 +1,14 @@
 import express from "express";
 import bootstrap from "./src/app.controller.js";
-import chalk from "chalk";
-import { initSocket } from "./src/socket.js";
-import http from "http";
+import { PORT } from "./config/config.service.js";
+import path from "path";
+import { fileURLToPath } from 'url';
+import chalk from 'chalk';
 
-console.log("🚀 Script started");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const server = http.createServer(app);
-const io = initSocket(server);
-console.log("📁 Setting up static files...");
-app.use("/uploads", express.static("uploads"));
-
-const startServer = async () => {
-    try {
-        console.log("🔄 Calling bootstrap...");
-        await bootstrap(app, express);
-        console.log("✅ Bootstrap returned successfully");
-        
-        const PORT = process.env.PORT || 3000;
-        console.log(`🔌 Attempting to listen on port ${PORT}...`);
-        console.log("PORT from env:", process.env.PORT);
-        
-        server.listen(PORT, '0.0.0.0', () => {
-            console.log(chalk.bgGreen(`✅ Server running on port ${PORT}!`));
-        });
-        
-        server.on('error', (err) => {
-            console.error(chalk.bgRed("❌ Server error:"), err);
-            process.exit(1);
-        });
-        
-    } catch (error) {
-        console.error(chalk.bgRed("❌ FATAL ERROR:"), error);
-        console.error(chalk.red("Stack trace:"), error.stack);
-        process.exit(1);
-    }
-};
-
-console.log("🏁 Calling startServer...");
-startServer();
-
-
-/**
- * $2b$10$nOUIs5kJ7naTuTFkBy1veuK0kSxUFXfuaOKdOKf9xYT0KKIGSJwFa
- |  |  |                     |
- |  |  |                     hash-value = K0kSxUFXfuaOKdOKf9xYT0KKIGSJwFa
- |  |  |
- |  |  salt = nOUIs5kJ7naTuTFkBy1veu
- |  |
- |  cost-factor => 10 = 2^10 rounds
- |
- hash-algorithm identifier => 2b = BCrypt
- */
+await bootstrap(app, express);
+app.listen(PORT, () => console.log(chalk.bgGreen.black(`🚀 Server running on port ${PORT}!`)));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
