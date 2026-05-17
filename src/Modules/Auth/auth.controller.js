@@ -102,6 +102,10 @@ router.post("/signup",
     authService.signup
 );
 
+router.get("/test", (req, res) => {
+  res.json({ message: "Auth routes working" });
+});
+
 // ✅ LOGIN - Sign in with email/password
 router.post("/login",
     validation(authValidation.loginSchema),
