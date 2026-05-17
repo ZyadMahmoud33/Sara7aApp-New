@@ -4,16 +4,19 @@ let io;
 
 export function initSocket(server) {
     io = new Server(server, {
-        cors: { origin: "*", credentials: true }
+        cors: {
+            origin: ["https://sara7a-frontend.vercel.app", "http://localhost:5173"],
+            credentials: true,
+            methods: ["GET", "POST"]
+        },
+        allowEIO3: true
     });
 
-    // تخزين OTP بشكل مؤقت (in-memory)
     const otpStore = new Map();
 
     io.on("connection", (socket) => {
         console.log("🟢 New client connected:", socket.id);
 
-        // طلب OTP
         socket.on("request-otp", (email) => {
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             otpStore.set(email, { otp, expires: Date.now() + 5 * 60 * 1000 });
@@ -21,7 +24,6 @@ export function initSocket(server) {
             console.log(`📡 OTP sent to ${email}: ${otp}`);
         });
 
-        // التحقق من OTP
         socket.on("verify-otp", ({ email, otp }) => {
             const record = otpStore.get(email);
             const isValid = record && record.otp === otp && record.expires > Date.now();
