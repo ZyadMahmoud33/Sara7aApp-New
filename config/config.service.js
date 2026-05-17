@@ -81,6 +81,7 @@ export const REFRESH_EXPIRES = Number(process.env.REFRESH_EXPIRES) || 86400;
 export const CLIENT_ID = process.env.CLIENT_ID;
 export const REDIS_URL = process.env.REDIS_URL;
 
+
 // Google OAuth
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -113,7 +114,7 @@ export const BREVO_API_KEY = process.env.BREVO_API_KEY;
 export const WHITE_LIST = process.env.WHITE_LIST || "http://localhost:5173,https://sara7a-frontend.vercel.app";
 export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-export const CLIENT_URL = process.env.CLIENT_URL;
+export const CLIENT_URL = process.env.CLIENT_URL || "https://sara7a-frontend.vercel.app";
 
 console.log("🔍 process.env.WHITE_LIST =", process.env.WHITE_LIST);
 console.log("🔍 process.env.NODE_ENV =", process.env.NODE_ENV);
