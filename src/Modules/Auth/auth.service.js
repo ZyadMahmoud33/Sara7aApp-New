@@ -754,6 +754,16 @@ export const loginWithTwitter = async (req, res) => {
   }
 };
 
+export const socialLoginCallback = async (req, res) => {
+  try {
+    const user = req.user;
+    const credentials = await getNewLoginCredentials(user);
+    res.redirect(`${process.env.CLIENT_URL}/auth-success?accessToken=${credentials.accessToken}&refreshToken=${credentials.refreshToken}`);
+  } catch (error) {
+    res.redirect(`${process.env.CLIENT_URL}/login?error=Social login failed`);
+  }
+};
+
 // logout with ttl of mongoodb
 export const logout = async (req, res) => {
     const {flag} = req.body;

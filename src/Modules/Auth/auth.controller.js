@@ -88,6 +88,7 @@ import * as authValidation from "./auth.validation.js";
 import { authentication, authorization } from "../../Middlewares/auth.middleware.js";
 import { RoleEnum, TokenTypeEnum } from "../../Utlis/enumes/user.enumes.js";
 import { validation } from "../../Middlewares/validation.middleware.js";
+import passport from "../../../config/passport.js";
 
 const router = Router();
 
@@ -134,10 +135,27 @@ router.patch("/reset-password",
 // ================================
 // 🌐 SOCIAL LOGIN ROUTES
 // ================================
+
+// ✅ Google OAuth Routes (Redirect Flow)
+router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+router.get("/google/callback", 
+  passport.authenticate("google", { failureRedirect: "/login" }),
+  authService.socialLoginCallback
+);
+
+// ✅ Google Login API (Token Flow)
 router.post("/google-login", authService.loginWithGoogle);
+
+// ✅ Facebook Login API
 router.post("/facebook-login", authService.loginWithFacebook);
+
+// ✅ GitHub Login API
 router.post("/github-login", authService.loginWithGitHub);
+
+// ✅ Apple Login API
 router.post("/apple-login", authService.loginWithApple);
+
+// ✅ X (Twitter) Login API
 router.post("/twitter-login", authService.loginWithTwitter);
 
 // ================================
