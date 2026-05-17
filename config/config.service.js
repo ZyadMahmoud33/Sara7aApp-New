@@ -85,7 +85,7 @@ export const REDIS_URL = process.env.REDIS_URL;
 // Sending Emails
 export const USER_EMAIL = process.env.USER_EMAIL;
 export const USER_PASSWORD = process.env.USER_PASSWORD;
-
+export const BREVO_API_KEY = process.env.BREVO_API_KEY;
 // CORS
 // CORS
 // CORS - الأفضل تكتبها كده
