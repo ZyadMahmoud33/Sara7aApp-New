@@ -1,485 +1,3 @@
-// import UserModel from "../../DB/models/user.model.js"; 
-// import { BadRequestException, ConflictException, NotFoundException } from "../../Utlis/response/error.response.js";
-// import { successResponse } from "../../Utlis/response/succes.response.js";
-// import { create, findOne, findById, updateOne, findOneAndUpdate } from "../../DB//models/database.repository.js";
-// import { generateHash, compareHash } from "../../Utlis/security/hash.security.js";
-// import { HashEnum } from "../../Utlis/enumes/security.enum.js";
-// import { encrypt } from "../../Utlis/security/encryption.security.js";
-// import {generateToken} from "../../Utlis/token/token.js";
-// import {  REFRESH_EXPIRES, CLIENT_ID  } from "../../../config/config.service.js";
-// import { verifyToken  } from "../../Utlis/token/token.js";
-// import { getNewLoginCredentials } from "../../Utlis/token/token.js";
-// import { getSignature, generateToken as generateToken2 } from "../../Utlis/token/token.js";
-// import { SignatureEnum, TokenTypeEnum, RoleEnum, ProviderEnum, LogoutTypeEnum } from "../../Utlis/enumes/user.enumes.js";
-// import { ACCESS_EXPIRES } from "../../../config/config.service.js";
-// import { OAuth2Client } from "google-auth-library";
-// import { set } from "../../DB/redis.service.js";
-// import { revokeTokenKey, ttl } from "../../DB/redis.service.js";
-// import { generateOTP } from "../../Utlis/generateOtp.js";
-// import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
-
-
-
-
-// export const signup = async (req, res) => {
-//   try {
-//     const { firstName, lastName, email, password, phone, age, confirmPassword } = req.body;
-    
-//     // تأكد إن الباسووردات متطابقة
-//     if (password !== confirmPassword) {
-//       return res.status(400).json({ message: "Passwords do not match" });
-//     }
-    
-//     if (await findOne({ model: UserModel, filter: { email } }))
-//       return res.status(409).json({ message: "User already exists" });
-      
-//     const hashedPassword = await generateHash({
-//       plaintext: password,
-//       algo: HashEnum.Argon,
-//     });
-    
-//     const encryptedData = await encrypt(phone);
-//     const otp = generateOTP();
-//     const hashedOtp = await generateHash({
-//       plaintext: JSON.stringify(otp),
-//       algo: HashEnum.Argon,
-//     });
-    
-//     const user = await create({
-//       model: UserModel,
-//       data: [{
-//         firstName,
-//         lastName,
-//         email,
-//         age,
-//         password: hashedPassword,
-//         phone: encryptedData,
-//         confirmEmailOtp: hashedOtp,
-//       }],
-//     });
-    
-//     emailEvent.emit("confirmEmail", { to: email, otp, firstName });
-    
-//     return res.status(201).json({
-//       success: true,
-//       message: "User created successfully",
-//       data: { user: { id: user._id, email: user.email } },
-//     });
-    
-//   } catch (error) {
-//     console.error("Signup error:", error);
-//     return res.status(500).json({ message: error.message });
-//   }
-// };
-
-// export const confirmEmail = async (req, res) => {
-//     try {
-//         const { email, otp } = req.body;
-        
-//         console.log("📥 Confirm Email - Email:", email);
-//         console.log("🔢 OTP received:", otp);
-        
-//         // ✅ تحقق من وجود البيانات
-//         if (!email || !otp) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Email and OTP are required ❌"
-//             });
-//         }
-        
-//         const user = await findOne({ 
-//             model: UserModel, 
-//             filter: { 
-//                 email, 
-//                 confirmEmail: { $exists: false }, 
-//                 confirmEmailOtp: { $exists: true } ,
-//             } 
-//         });
-        
-//         if (!user) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "User not found or already confirmed ❌"
-//             });
-//         }
-        
-//         console.log("✅ User found:", user._id);
-        
-//         // ✅ تأكد من وجود confirmEmailOtp
-//         if (!user.confirmEmailOtp) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "No OTP found. Please request a new one 📧"
-//             });
-//         }
-        
-//         const isOtpValid = await compareHash({
-//             plaintext: otp,
-//             ciphertext: user.confirmEmailOtp,
-//             algo: HashEnum.Argon,
-//         });
-        
-//         console.log("🔍 OTP valid?", isOtpValid);
-        
-//         if (!isOtpValid) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Invalid OTP ❌"
-//             });
-//         }
-        
-//         await updateOne({ 
-//             model: UserModel, 
-//             filter: { email }, 
-//             update: { 
-//                 confirmEmail: Date.now(),
-//                 $unset: { confirmEmailOtp: true } 
-//             },
-//         });
-        
-//         console.log("✅ Email confirmed successfully!");
-        
-//         return res.status(200).json({
-//             success: true,
-//             message: "Email confirmed successfully! ✅"
-//         });
-        
-//     } catch (error) {
-//         console.error("❌ Confirm email error:", error);
-//         console.error("Error stack:", error.stack);
-        
-//         return res.status(500).json({
-//             success: false,
-//             message: error.message || "Internal server error ❌",
-//         });
-//     }
-// };
-
-// export const resendOtp = async (req, res) => {
-//     try {
-//         const { email } = req.body;
-        
-//         if (!email) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Email is required 📧"
-//             });
-//         }
-        
-//         console.log("📥 Resend OTP for:", email);
-        
-//         const user = await findOne({
-//             model: UserModel,
-//             filter: {
-//                 email: email.toLowerCase(),
-//                 confirmEmail: { $exists: false },
-//             },
-//         });
-        
-//         if (!user) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "User Not Found or already confirmed ❌"
-//             });
-//         }
-        
-//         // generate OTP
-//         const otp = generateOTP();
-//         console.log("🔢 New OTP generated:", otp);
-        
-//         const hashedOtp = await generateHash({
-//             plaintext: otp.toString(),
-//             algo: HashEnum.Argon,
-//         });
-        
-//         await updateOne({
-//             model: UserModel,
-//             filter: { email: email.toLowerCase() },
-//             update: {
-//                 confirmEmailOtp: hashedOtp,
-//             },
-//         });
-        
-//         // send email
-//         emailEventy.emit("resendOtp", {
-//             to: user.email,
-//             otp,
-//             firstName: user.firstName,
-//         });
-        
-//         console.log("✅ OTP resent successfully to:", email);
-        
-//         return successResponse({
-//             res,
-//             message: "OTP resent successfully! 📧",
-//         });
-        
-//     } catch (error) {
-//         console.error("❌ Resend OTP error:", error);
-//         return res.status(500).json({
-//             success: false,
-//             message: error.message || "Internal server error",
-//         });
-//     }
-// };
-
-// export const login = async (req, res) => {
-//     const { email, password } = req.body;
-//     const user = await findOne({ 
-//       model: UserModel, 
-//       filter: { 
-//         email, 
-//         confirmEmail: { $exists: true },
-//         freezedAt: { $exists: false }
-//        },
-//     });
-//     if (!user)
-//         throw NotFoundException({ message: "User Not Found" });
-    
-//     const isPasswordValid = await compareHash({
-//         plaintext: password,
-//         ciphertext: user.password,
-//         algo: HashEnum.Argon,
-//     });
-//     if (!isPasswordValid)
-//         throw BadRequestException({ message: "Invalid email or password" });
-//     const credentials = await getNewLoginCredentials(user);
-//     return successResponse({
-//         res,
-//         statusCode: 200,
-//         message: "User logged in successfully",
-//         data: { ...credentials },
-//     });
-// };
-
-// export const refreshToken = async (req, res) => {
-
-//   const user = await findById({
-//     model: UserModel,
-//     id: req.user.id, // 🔥 جاي من middleware
-//   });
-
-//   if (!user) {
-//     throw new Error("User not found");
-//   }
-
-//   const signature = getSignature({
-//     getSignatureLevel:
-//       user.role !== RoleEnum.Admin
-//         ? SignatureEnum.User
-//         : SignatureEnum.Admin,
-//   });
-
-//   const accessToken = generateToken({
-//     payload: {
-//       id: user._id,
-//       role: user.role, // 🔥 مهم جدًا
-//     },
-//     secretKey: signature.accesssignature,
-//     options: { expiresIn: ACCESS_EXPIRES },
-//   });
-
-//   return res.json({
-//     message: "Token refreshed successfully",
-//     accessToken,
-//   });
-// };
-
-// async function verifyGoogleAccount({idToken}) {
-//   const client = new OAuth2Client();
-//   const ticket = await client.verifyIdToken({
-//     idToken,
-//     audience: CLIENT_ID,  
-//   });
-//   const payload = ticket.getPayload();
-//   return payload;
-// };
-
-// export const loginWithGoogle = async (req, res) => {
-//     const { idToken } = req.body;
-    
-//    const { email, picture, given_name, family_name, email_verified } =
-//     await verifyGoogleAccount({ idToken });
-
-
-//   if (!email_verified) throw BadRequestException({message :  "Email not verified" });
-
-//   const user = await findOne({ model: UserModel, filter: { email },  });
-//   if (user) {
-//     //logic
-//   if (user.provider === ProviderEnum.Google) {
-//     const credentials = await getNewLoginCredentials({ user });
-//     return successResponse({
-//       res,
-//       statusCode: 200,
-//       message: "Logged in successfully",
-//       data: credentials,
-//     });
-//    }
-//   }
-//   const newUser = await create({ model : UserModel , 
-//     data :[
-//       {
-//     firstName : given_name,
-//     lastName : family_name,
-//     email,
-//     profilePic: picture,
-//     provider : ProviderEnum.Google,
-//     },
-//   ],
-//   });
-//   // create user
-//    const credentials = await getNewLoginCredentials({ newUser });
-//     return successResponse({
-//       res,
-//       statusCode: 201,
-//       message: "Logged in successfully",
-//       data:  { credentials },
-//     });
-//   };
-
-// // logout with ttl of mongoodb
-// export const logout = async (req, res) => {
-//     const {flag} = req.body;
-
-//     let status = 200;
-//     switch (flag) {
-//       case LogoutTypeEnum.logout:
-//         await create ({
-//           model : TokenModel,
-//           data: [{
-//             jti: req.decoded.jti, 
-//             userId : req.user._id,
-//             expiresIn: Date.now() - req.decoded.exp,
-//           },
-//         ],
-//       });
-//       status = 201;  
-//        case LogoutTypeEnum.logoutFromAll:
-//         await updateOne ({
-//           model : UserModel,
-//           filter : { _id: req.user._id },
-//           update: { changeCredentialsTime : Date.now()
-
-//            },
-//         });
-//       status = 200;          
-//     }
-//     return successResponse({
-//       res,
-//       statusCode: status,
-//       message: "Logout successfully",
-//     });
-//   };
-
-//   export const logoutWithRedis = async (req, res) => {
-//     const {flag} = req.body;
-
-//     let status = 200;
-//     switch (flag) {
-//       case LogoutTypeEnum.logout:
-//        await set({
-//         key: revokeTokenKey({
-//           userId: req.user._id, 
-//           jti: req.decoded.jti
-//         }), 
-//         value: req.decoded.jti, 
-//         ttl: req.decoded.iat + ACCESS_EXPIRES,
-//       })
-//       status = 201;  
-//        case LogoutTypeEnum.logoutFromAll:
-//         await updateOne ({
-//           model : UserModel,
-//           filter : { _id: req.user._id },
-//           update: { changeCredentialsTime : Date.now()
-
-//            },
-//         });
-//       status = 200;          
-//     }
-//     return successResponse({
-//       res,
-//       statusCode: status,
-//       message: "Logout successfully",
-//     });
-//   };
-
-// export const forgetPassword = async (req, res) => {
-//   const { email } = req.body;
-//  //generate otp 
-//   const otp = generateOTP();
-//   const hashOtp = await generateHash({ 
-//     plaintext: JSON.stringify(otp), 
-//     algo: HashEnum.Argon, 
-//   });
-//   const user = await findOneAndUpdate({
-//     model : UserModel,
-//     filter : { 
-//       email, 
-//       provider: ProviderEnum.System,
-//       confirmEmail: { $exists: true },
-//     },
-//     update : {
-//        forgetPasswordOTP : hashOtp
-//     },
-//   });
-//   if(!user)throw NotFoundException({message: "User not found"});
-//   emailEvent.emit("forgetPassword", {
-//     to: email,
-//     otp,
-//     firstName: user.firstName,
-//   });
-//    return successResponse({
-//     res,
-//     statusCode: 200,
-//     message: "Check Your Inbox",
-//   });
-// };
-
-// export const resetPassword = async (req, res) => {
-//  const { email, otp, newPassword } = req.body;
-//   const user = await findOne({
-//     model : UserModel,
-//     filter : { 
-//       email, 
-//       provider: ProviderEnum.System,
-//       confirmEmail: { $exists: true },
-//       forgetPasswordOTP: { $exists: true, $ne: null }
-//     },
-//   });
-//  if (!user) throw NotFoundException({message: "User not found"});
-//  const isOtpValid = await compareHash({
-//         plaintext: JSON.stringify(otp),
-//         ciphertext: user.forgetPasswordOTP,
-//         algo: HashEnum.Argon,
-//     });
-//     if (!isOtpValid) 
-//         throw BadRequestException({
-//             message: "Invalid OTP",
-//         });
-
-//      const hashedPassword = await generateHash({ 
-//         plaintext: newPassword, 
-//         algo: HashEnum.Argon, 
-//       });
-//       //update user password
-//       await updateOne({
-//         model : UserModel,
-//         filter : { email},
-//         update : { 
-//           password: hashedPassword ,
-//           $unset: { forgetPasswordOTP: true },
-//         },
-//       });
-//       return successResponse({
-//         res,
-//         statusCode: 200,
-//         message: "Password reset successfully",
-//       });
-    
-// };
-
-
 import UserModel from "../../DB/models/user.model.js"; 
 import { BadRequestException, ConflictException, NotFoundException } from "../../Utlis/response/error.response.js";
 import { successResponse } from "../../Utlis/response/succes.response.js";
@@ -487,9 +5,9 @@ import { create, findOne, findById, updateOne, findOneAndUpdate } from "../../DB
 import { generateHash, compareHash } from "../../Utlis/security/hash.security.js";
 import { HashEnum } from "../../Utlis/enumes/security.enum.js";
 import { encrypt } from "../../Utlis/security/encryption.security.js";
-import { generateToken } from "../../Utlis/token/token.js";
-import { REFRESH_EXPIRES, CLIENT_ID } from "../../../config/config.service.js";
-import { verifyToken } from "../../Utlis/token/token.js";
+import {generateToken} from "../../Utlis/token/token.js";
+import {  REFRESH_EXPIRES, CLIENT_ID  } from "../../../config/config.service.js";
+import { verifyToken  } from "../../Utlis/token/token.js";
 import { getNewLoginCredentials } from "../../Utlis/token/token.js";
 import { getSignature, generateToken as generateToken2 } from "../../Utlis/token/token.js";
 import { SignatureEnum, TokenTypeEnum, RoleEnum, ProviderEnum, LogoutTypeEnum } from "../../Utlis/enumes/user.enumes.js";
@@ -498,9 +16,11 @@ import { OAuth2Client } from "google-auth-library";
 import { set } from "../../DB/redis.service.js";
 import { revokeTokenKey, ttl } from "../../DB/redis.service.js";
 import { generateOTP } from "../../Utlis/generateOtp.js";
-import { emailEvent } from "../../Utlis/events/email.events.js";
+import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
 
-// ✅ توحيد EventEmitter (استخدم emailEvent فقط)
+
+
+
 export const signup = async (req, res) => {
   try {
     const { firstName, lastName, email, password, phone, age, confirmPassword } = req.body;
@@ -533,7 +53,6 @@ export const signup = async (req, res) => {
         email,
         age,
         password: hashedPassword,
-        confirmPassword: hashedPassword,
         phone: encryptedData,
         confirmEmailOtp: hashedOtp,
       }],
@@ -553,476 +72,410 @@ export const signup = async (req, res) => {
   }
 };
 
-
 export const confirmEmail = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-    
-    console.log("📥 Confirm Email - Email:", email);
-    
-    if (!email || !otp) {
-      throw BadRequestException({ message: "Email and OTP are required" });
+    try {
+        const { email, otp } = req.body;
+        
+        console.log("📥 Confirm Email - Email:", email);
+        console.log("🔢 OTP received:", otp);
+        
+        // ✅ تحقق من وجود البيانات
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and OTP are required ❌"
+            });
+        }
+        
+        const user = await findOne({ 
+            model: UserModel, 
+            filter: { 
+                email, 
+                confirmEmail: { $exists: false }, 
+                confirmEmailOtp: { $exists: true } ,
+            } 
+        });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found or already confirmed ❌"
+            });
+        }
+        
+        console.log("✅ User found:", user._id);
+        
+        // ✅ تأكد من وجود confirmEmailOtp
+        if (!user.confirmEmailOtp) {
+            return res.status(400).json({
+                success: false,
+                message: "No OTP found. Please request a new one 📧"
+            });
+        }
+        
+        const isOtpValid = await compareHash({
+            plaintext: otp,
+            ciphertext: user.confirmEmailOtp,
+            algo: HashEnum.Argon,
+        });
+        
+        console.log("🔍 OTP valid?", isOtpValid);
+        
+        if (!isOtpValid) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP ❌"
+            });
+        }
+        
+        await updateOne({ 
+            model: UserModel, 
+            filter: { email }, 
+            update: { 
+                confirmEmail: Date.now(),
+                $unset: { confirmEmailOtp: true } 
+            },
+        });
+        
+        console.log("✅ Email confirmed successfully!");
+        
+        return res.status(200).json({
+            success: true,
+            message: "Email confirmed successfully! ✅"
+        });
+        
+    } catch (error) {
+        console.error("❌ Confirm email error:", error);
+        console.error("Error stack:", error.stack);
+        
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Internal server error ❌",
+        });
     }
-    
-    const user = await findOne({ 
-      model: UserModel, 
-      filter: { 
-        email, 
-        isVerified: false,
-        emailVerificationOtp: { $exists: true, $ne: null },
-      } 
-    });
-    
-    if (!user) {
-      throw NotFoundException({ message: "User not found or already confirmed" });
-    }
-    
-    // ✅ التحقق من صلاحية OTP
-    if (user.emailVerificationExpires && user.emailVerificationExpires < Date.now()) {
-      throw BadRequestException({ message: "OTP has expired. Please request a new one." });
-    }
-    
-    const isOtpValid = await compareHash({
-      plaintext: otp.toString(),
-      ciphertext: user.emailVerificationOtp,
-      algo: HashEnum.Argon,
-    });
-    
-    if (!isOtpValid) {
-      throw BadRequestException({ message: "Invalid OTP" });
-    }
-    
-    await updateOne({ 
-      model: UserModel, 
-      filter: { email }, 
-      update: { 
-        isVerified: true,
-        $unset: { 
-          emailVerificationOtp: "",
-          emailVerificationExpires: "",
-        },
-      },
-    });
-    
-    console.log("✅ Email confirmed successfully!");
-    
-    return successResponse({
-      res,
-      message: "Email confirmed successfully!",
-    });
-    
-  } catch (error) {
-    console.error("❌ Confirm email error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
 };
 
 export const resendOtp = async (req, res) => {
-  try {
-    const { email } = req.body;
-    
-    if (!email) {
-      throw BadRequestException({ message: "Email is required" });
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: "Email is required 📧"
+            });
+        }
+        
+        console.log("📥 Resend OTP for:", email);
+        
+        const user = await findOne({
+            model: UserModel,
+            filter: {
+                email: email.toLowerCase(),
+                confirmEmail: { $exists: false },
+            },
+        });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User Not Found or already confirmed ❌"
+            });
+        }
+        
+        // generate OTP
+        const otp = generateOTP();
+        console.log("🔢 New OTP generated:", otp);
+        
+        const hashedOtp = await generateHash({
+            plaintext: otp.toString(),
+            algo: HashEnum.Argon,
+        });
+        
+        await updateOne({
+            model: UserModel,
+            filter: { email: email.toLowerCase() },
+            update: {
+                confirmEmailOtp: hashedOtp,
+            },
+        });
+        
+        // send email
+        emailEventy.emit("resendOtp", {
+            to: user.email,
+            otp,
+            firstName: user.firstName,
+        });
+        
+        console.log("✅ OTP resent successfully to:", email);
+        
+        return successResponse({
+            res,
+            message: "OTP resent successfully! 📧",
+        });
+        
+    } catch (error) {
+        console.error("❌ Resend OTP error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Internal server error",
+        });
     }
-    
-    console.log("📥 Resend OTP for:", email);
-    
-    const user = await findOne({
-      model: UserModel,
-      filter: {
-        email: email.toLowerCase(),
-        isVerified: false,
-      },
-    });
-    
-    if (!user) {
-      throw NotFoundException({ message: "User not found or already verified" });
-    }
-    
-    const otp = generateOTP();
-    console.log("🔢 New OTP generated:", otp);
-    
-    const hashedOtp = await generateHash({
-      plaintext: otp.toString(),
-      algo: HashEnum.Argon,
-    });
-    
-    await updateOne({
-      model: UserModel,
-      filter: { email: email.toLowerCase() },
-      update: {
-        emailVerificationOtp: hashedOtp,
-        emailVerificationExpires: Date.now() + 3 * 60 * 1000,
-      },
-    });
-    
-    emailEvent.emit("resendOtp", {
-      to: user.email,
-      otp,
-      firstName: user.firstName,
-    });
-    
-    console.log("✅ OTP resent successfully to:", email);
-    
-    return successResponse({
-      res,
-      message: "OTP resent successfully! Please check your email.",
-    });
-    
-  } catch (error) {
-    console.error("❌ Resend OTP error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
 };
 
 export const login = async (req, res) => {
-  try {
     const { email, password } = req.body;
-    
     const user = await findOne({ 
       model: UserModel, 
       filter: { 
         email, 
-        isVerified: true,
+        confirmEmail: { $exists: true },
         freezedAt: { $exists: false }
-      },
+       },
     });
-    
-    if (!user) {
-      throw NotFoundException({ message: "User not found or email not verified" });
-    }
+    if (!user)
+        throw NotFoundException({ message: "User Not Found" });
     
     const isPasswordValid = await compareHash({
-      plaintext: password,
-      ciphertext: user.password,
-      algo: HashEnum.Argon,
+        plaintext: password,
+        ciphertext: user.password,
+        algo: HashEnum.Argon,
     });
-    
-    if (!isPasswordValid) {
-      throw BadRequestException({ message: "Invalid email or password" });
-    }
-    
+    if (!isPasswordValid)
+        throw BadRequestException({ message: "Invalid email or password" });
     const credentials = await getNewLoginCredentials(user);
-    
     return successResponse({
-      res,
-      message: "User logged in successfully",
-      data: credentials,
+        res,
+        statusCode: 200,
+        message: "User logged in successfully",
+        data: { ...credentials },
     });
-    
-  } catch (error) {
-    console.error("Login error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
 };
 
 export const refreshToken = async (req, res) => {
-  try {
-    const user = await findById({
-      model: UserModel,
-      id: req.user.id,
-    });
 
-    if (!user) {
-      throw NotFoundException({ message: "User not found" });
-    }
+  const user = await findById({
+    model: UserModel,
+    id: req.user.id, // 🔥 جاي من middleware
+  });
 
-    const signature = getSignature({
-      getSignatureLevel: user.role !== RoleEnum.Admin ? SignatureEnum.User : SignatureEnum.Admin,
-    });
-
-    const accessToken = generateToken({
-      payload: { id: user._id, role: user.role },
-      secretKey: signature.accesssignature,
-      options: { expiresIn: ACCESS_EXPIRES },
-    });
-
-    return res.json({
-      success: true,
-      message: "Token refreshed successfully",
-      accessToken,
-    });
-    
-  } catch (error) {
-    console.error("Refresh token error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+  if (!user) {
+    throw new Error("User not found");
   }
+
+  const signature = getSignature({
+    getSignatureLevel:
+      user.role !== RoleEnum.Admin
+        ? SignatureEnum.User
+        : SignatureEnum.Admin,
+  });
+
+  const accessToken = generateToken({
+    payload: {
+      id: user._id,
+      role: user.role, // 🔥 مهم جدًا
+    },
+    secretKey: signature.accesssignature,
+    options: { expiresIn: ACCESS_EXPIRES },
+  });
+
+  return res.json({
+    message: "Token refreshed successfully",
+    accessToken,
+  });
 };
 
-async function verifyGoogleAccount({ idToken }) {
+async function verifyGoogleAccount({idToken}) {
   const client = new OAuth2Client();
   const ticket = await client.verifyIdToken({
     idToken,
-    audience: CLIENT_ID,
+    audience: CLIENT_ID,  
   });
-  return ticket.getPayload();
-}
+  const payload = ticket.getPayload();
+  return payload;
+};
 
 export const loginWithGoogle = async (req, res) => {
-  try {
     const { idToken } = req.body;
     
-    const { email, picture, given_name, family_name, email_verified } = await verifyGoogleAccount({ idToken });
+   const { email, picture, given_name, family_name, email_verified } =
+    await verifyGoogleAccount({ idToken });
 
-    if (!email_verified) {
-      throw BadRequestException({ message: "Email not verified" });
-    }
 
-    let user = await findOne({ model: UserModel, filter: { email } });
-    
-    if (user) {
-      if (user.provider === ProviderEnum.Google) {
-        const credentials = await getNewLoginCredentials(user);
-        return successResponse({
-          res,
-          message: "Logged in successfully",
-          data: credentials,
-        });
-      } else {
-        throw ConflictException({ message: "Email already registered with another provider" });
-      }
-    }
-    
-    const newUser = await create({
-      model: UserModel,
-      data: [{
-        firstName: given_name,
-        lastName: family_name,
-        email,
-        profilePic: picture,
-        provider: ProviderEnum.Google,
-        isVerified: true,
-      }],
+  if (!email_verified) throw BadRequestException({message :  "Email not verified" });
+
+  const user = await findOne({ model: UserModel, filter: { email },  });
+  if (user) {
+    //logic
+  if (user.provider === ProviderEnum.Google) {
+    const credentials = await getNewLoginCredentials({ user });
+    return successResponse({
+      res,
+      statusCode: 200,
+      message: "Logged in successfully",
+      data: credentials,
     });
-    
-    const credentials = await getNewLoginCredentials(newUser);
-    
+   }
+  }
+  const newUser = await create({ model : UserModel , 
+    data :[
+      {
+    firstName : given_name,
+    lastName : family_name,
+    email,
+    profilePic: picture,
+    provider : ProviderEnum.Google,
+    },
+  ],
+  });
+  // create user
+   const credentials = await getNewLoginCredentials({ newUser });
     return successResponse({
       res,
       statusCode: 201,
       message: "Logged in successfully",
-      data: credentials,
+      data:  { credentials },
     });
-    
-  } catch (error) {
-    console.error("Google login error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
-};
+  };
 
+// logout with ttl of mongoodb
 export const logout = async (req, res) => {
-  try {
-    const { flag } = req.body;
-    
-    let status = 200;
-    
-    switch (flag) {
-      case LogoutTypeEnum.logout:
-        await create({
-          model: TokenModel,
-          data: [{
-            jti: req.decoded.jti,
-            userId: req.user._id,
-            expiresIn: Date.now() - req.decoded.exp,
-          }],
-        });
-        status = 201;
-        break;
-        
-      case LogoutTypeEnum.logoutFromAll:
-        await updateOne({
-          model: UserModel,
-          filter: { _id: req.user._id },
-          update: { changeCredentialsTime: Date.now() },
-        });
-        status = 200;
-        break;
-        
-      default:
-        throw BadRequestException({ message: "Invalid logout flag" });
-    }
-    
-    return successResponse({
-      res,
-      statusCode: status,
-      message: "Logout successfully",
-    });
-    
-  } catch (error) {
-    console.error("Logout error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+    const {flag} = req.body;
 
-export const logoutWithRedis = async (req, res) => {
-  try {
-    const { flag } = req.body;
-    
     let status = 200;
-    
     switch (flag) {
       case LogoutTypeEnum.logout:
-        await set({
-          key: revokeTokenKey({ userId: req.user._id, jti: req.decoded.jti }),
-          value: req.decoded.jti,
-          ttl: req.decoded.iat + ACCESS_EXPIRES,
+        await create ({
+          model : TokenModel,
+          data: [{
+            jti: req.decoded.jti, 
+            userId : req.user._id,
+            expiresIn: Date.now() - req.decoded.exp,
+          },
+        ],
+      });
+      status = 201;  
+       case LogoutTypeEnum.logoutFromAll:
+        await updateOne ({
+          model : UserModel,
+          filter : { _id: req.user._id },
+          update: { changeCredentialsTime : Date.now()
+
+           },
         });
-        status = 201;
-        break;
-        
-      case LogoutTypeEnum.logoutFromAll:
-        await updateOne({
-          model: UserModel,
-          filter: { _id: req.user._id },
-          update: { changeCredentialsTime: Date.now() },
-        });
-        status = 200;
-        break;
-        
-      default:
-        throw BadRequestException({ message: "Invalid logout flag" });
+      status = 200;          
     }
-    
     return successResponse({
       res,
       statusCode: status,
       message: "Logout successfully",
     });
-    
-  } catch (error) {
-    console.error("Logout with Redis error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message,
+  };
+
+  export const logoutWithRedis = async (req, res) => {
+    const {flag} = req.body;
+
+    let status = 200;
+    switch (flag) {
+      case LogoutTypeEnum.logout:
+       await set({
+        key: revokeTokenKey({
+          userId: req.user._id, 
+          jti: req.decoded.jti
+        }), 
+        value: req.decoded.jti, 
+        ttl: req.decoded.iat + ACCESS_EXPIRES,
+      })
+      status = 201;  
+       case LogoutTypeEnum.logoutFromAll:
+        await updateOne ({
+          model : UserModel,
+          filter : { _id: req.user._id },
+          update: { changeCredentialsTime : Date.now()
+
+           },
+        });
+      status = 200;          
+    }
+    return successResponse({
+      res,
+      statusCode: status,
+      message: "Logout successfully",
     });
-  }
-};
+  };
 
 export const forgetPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
-    
-    const otp = generateOTP();
-    const hashOtp = await generateHash({
-      plaintext: otp.toString(),
-      algo: HashEnum.Argon,
-    });
-    
-    const user = await findOneAndUpdate({
-      model: UserModel,
-      filter: {
-        email,
-        provider: ProviderEnum.System,
-        isVerified: true,
-      },
-      update: {
-        resetPasswordOtp: hashOtp,
-        resetPasswordExpires: Date.now() + 10 * 60 * 1000, // 10 دقائق
-      },
-    });
-    
-    if (!user) {
-      throw NotFoundException({ message: "User not found or email not verified" });
-    }
-    
-    emailEvent.emit("forgetPassword", {
-      to: email,
-      otp,
-      firstName: user.firstName,
-    });
-    
-    return successResponse({
-      res,
-      message: "Check your inbox for OTP",
-    });
-    
-  } catch (error) {
-    console.error("Forget password error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  const { email } = req.body;
+ //generate otp 
+  const otp = generateOTP();
+  const hashOtp = await generateHash({ 
+    plaintext: JSON.stringify(otp), 
+    algo: HashEnum.Argon, 
+  });
+  const user = await findOneAndUpdate({
+    model : UserModel,
+    filter : { 
+      email, 
+      provider: ProviderEnum.System,
+      confirmEmail: { $exists: true },
+    },
+    update : {
+       forgetPasswordOTP : hashOtp
+    },
+  });
+  if(!user)throw NotFoundException({message: "User not found"});
+  emailEvent.emit("forgetPassword", {
+    to: email,
+    otp,
+    firstName: user.firstName,
+  });
+   return successResponse({
+    res,
+    statusCode: 200,
+    message: "Check Your Inbox",
+  });
 };
 
 export const resetPassword = async (req, res) => {
-  try {
-    const { email, otp, newPassword } = req.body;
-    
-    const user = await findOne({
-      model: UserModel,
-      filter: {
-        email,
-        provider: ProviderEnum.System,
-        isVerified: true,
-        resetPasswordOtp: { $exists: true, $ne: null },
-      },
+ const { email, otp, newPassword } = req.body;
+  const user = await findOne({
+    model : UserModel,
+    filter : { 
+      email, 
+      provider: ProviderEnum.System,
+      confirmEmail: { $exists: true },
+      forgetPasswordOTP: { $exists: true, $ne: null }
+    },
+  });
+ if (!user) throw NotFoundException({message: "User not found"});
+ const isOtpValid = await compareHash({
+        plaintext: JSON.stringify(otp),
+        ciphertext: user.forgetPasswordOTP,
+        algo: HashEnum.Argon,
     });
-    
-    if (!user) {
-      throw NotFoundException({ message: "User not found or not verified" });
-    }
-    
-    // ✅ التحقق من صلاحية OTP
-    if (user.resetPasswordExpires && user.resetPasswordExpires < Date.now()) {
-      throw BadRequestException({ message: "OTP has expired. Please request a new one." });
-    }
-    
-    const isOtpValid = await compareHash({
-      plaintext: otp.toString(),
-      ciphertext: user.resetPasswordOtp,
-      algo: HashEnum.Argon,
-    });
-    
-    if (!isOtpValid) {
-      throw BadRequestException({ message: "Invalid OTP" });
-    }
-    
-    const hashedPassword = await generateHash({
-      plaintext: newPassword,
-      algo: HashEnum.Argon,
-    });
-    
-    await updateOne({
-      model: UserModel,
-      filter: { email },
-      update: {
-        password: hashedPassword,
-        $unset: {
-          resetPasswordOtp: "",
-          resetPasswordExpires: "",
+    if (!isOtpValid) 
+        throw BadRequestException({
+            message: "Invalid OTP",
+        });
+
+     const hashedPassword = await generateHash({ 
+        plaintext: newPassword, 
+        algo: HashEnum.Argon, 
+      });
+      //update user password
+      await updateOne({
+        model : UserModel,
+        filter : { email},
+        update : { 
+          password: hashedPassword ,
+          $unset: { forgetPasswordOTP: true },
         },
-      },
-    });
+      });
+      return successResponse({
+        res,
+        statusCode: 200,
+        message: "Password reset successfully",
+      });
     
-    return successResponse({
-      res,
-      message: "Password reset successfully",
-    });
-    
-  } catch (error) {
-    console.error("Reset password error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message,
-    });
-  }
 };
+
