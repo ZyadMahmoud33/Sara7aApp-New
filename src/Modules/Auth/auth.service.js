@@ -19,8 +19,6 @@ import { generateOTP } from "../../Utlis/generateOtp.js";
 import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
 
 
-
-
 export const signup = async (req, res) => {
   try {
     const { firstName, lastName, email, password, phone, age, confirmPassword } = req.body;
@@ -59,7 +57,7 @@ export const signup = async (req, res) => {
       }],
     });
     
-    emailEvent.emit("confirmEmail", {
+    emailEventy.emit("confirmEmail", {
       to: email,
       otp,
       firstName,
@@ -406,30 +404,35 @@ export const logout = async (req, res) => {
 
 export const forgetPassword = async (req, res) => {
   const { email } = req.body;
- //generate otp 
+  
+  // generate otp 
   const otp = generateOTP();
   const hashOtp = await generateHash({ 
     plaintext: JSON.stringify(otp), 
     algo: HashEnum.Argon, 
   });
+  
   const user = await findOneAndUpdate({
-    model : UserModel,
-    filter : { 
+    model: UserModel,
+    filter: { 
       email, 
       provider: ProviderEnum.System,
       confirmEmail: { $exists: true },
     },
-    update : {
-       forgetPasswordOTP : hashOtp
+    update: {
+      forgetPasswordOTP: hashOtp
     },
   });
-  if(!user)throw NotFoundException({message: "User not found"});
-  emailEvent.emit("forgetPassword", {
+  
+  if (!user) throw NotFoundException({ message: "User not found" });
+  
+  emailEventy.emit("forgetPassword", {
     to: email,
     otp,
     firstName: user.firstName,
   });
-   return successResponse({
+  
+  return successResponse({
     res,
     statusCode: 200,
     message: "Check Your Inbox",
