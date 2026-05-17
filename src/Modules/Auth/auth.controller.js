@@ -106,11 +106,10 @@ router.post("/login",
 );
 
 // 📧 تأكيد الإيميل (مفتوح للكل لأنه بيعتمد على الكود المرسل)
-router.post(
+router.patch(
     "/confirm-email",
     validation(authValidation.confirmEmailSchema),
     authService.confirmEmail
-
 );
 
 // 🔄 إعادة إرسال الـ OTP

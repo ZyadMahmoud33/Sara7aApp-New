@@ -53,17 +53,22 @@ export const signup = async (req, res) => {
         email,
         age,
         password: hashedPassword,
+        confirmPassword: hashedPassword,
         phone: encryptedData,
         confirmEmailOtp: hashedOtp,
       }],
     });
     
-    emailEvent.emit("confirmEmail", { to: email, otp, firstName });
+    emailEvent.emit("confirmEmail", {
+      to: email,
+      otp,
+      firstName,
+    });
     
     return res.status(201).json({
       success: true,
       message: "User created successfully",
-      data: { user: { id: user._id, email: user.email } },
+      data: { user },
     });
     
   } catch (error) {
@@ -127,7 +132,6 @@ export const confirmEmail = async (req, res) => {
                 message: "Invalid OTP ❌"
             });
         }
-        
         await updateOne({ 
             model: UserModel, 
             filter: { email }, 
@@ -136,18 +140,14 @@ export const confirmEmail = async (req, res) => {
                 $unset: { confirmEmailOtp: true } 
             },
         });
-        
         console.log("✅ Email confirmed successfully!");
-        
         return res.status(200).json({
             success: true,
             message: "Email confirmed successfully! ✅"
         });
-        
     } catch (error) {
         console.error("❌ Confirm email error:", error);
         console.error("Error stack:", error.stack);
-        
         return res.status(500).json({
             success: false,
             message: error.message || "Internal server error ❌",
