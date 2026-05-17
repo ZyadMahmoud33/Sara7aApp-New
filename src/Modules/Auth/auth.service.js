@@ -1,3 +1,4 @@
+// backend/src/Modules/Auth/auth.service.js
 import UserModel from "../../DB/models/user.model.js"; 
 import { BadRequestException, ConflictException, NotFoundException } from "../../Utlis/response/error.response.js";
 import { successResponse } from "../../Utlis/response/succes.response.js";
@@ -16,8 +17,10 @@ import { OAuth2Client } from "google-auth-library";
 import { set } from "../../DB/redis.service.js";
 import { revokeTokenKey, ttl } from "../../DB/redis.service.js";
 import { generateOTP } from "../../Utlis/generateOtp.js";
-import { emailEvent, emailEventy } from "../../Utlis/events/email.events.js";
-
+import { emailEventy } from "../../Utlis/events/email.events.js";
+import jwt from "jsonwebtoken";
+import { createPrivateKey } from "crypto";
+import axios from "axios";
 
 export const signup = async (req, res) => {
   try {
@@ -130,6 +133,7 @@ export const confirmEmail = async (req, res) => {
                 message: "Invalid OTP ❌"
             });
         }
+        
         await updateOne({ 
             model: UserModel, 
             filter: { email }, 
@@ -138,6 +142,7 @@ export const confirmEmail = async (req, res) => {
                 $unset: { confirmEmailOtp: true } 
             },
         });
+        
         console.log("✅ Email confirmed successfully!");
         return res.status(200).json({
             success: true,
@@ -283,58 +288,471 @@ export const refreshToken = async (req, res) => {
   });
 };
 
-async function verifyGoogleAccount({idToken}) {
+// ================================
+// 🔐 GOOGLE LOGIN
+// ================================
+async function verifyGoogleAccount({ idToken }) {
   const client = new OAuth2Client();
   const ticket = await client.verifyIdToken({
     idToken,
-    audience: CLIENT_ID,  
+    audience: process.env.GOOGLE_CLIENT_ID,
   });
   const payload = ticket.getPayload();
   return payload;
-};
+}
 
 export const loginWithGoogle = async (req, res) => {
+  try {
     const { idToken } = req.body;
     
-   const { email, picture, given_name, family_name, email_verified } =
-    await verifyGoogleAccount({ idToken });
+    if (!idToken) {
+      throw BadRequestException({ message: "ID Token is required" });
+    }
+    
+    const { email, picture, given_name, family_name, email_verified } =
+      await verifyGoogleAccount({ idToken });
 
+    if (!email_verified) {
+      throw BadRequestException({ message: "Email not verified with Google" });
+    }
 
-  if (!email_verified) throw BadRequestException({message :  "Email not verified" });
-
-  const user = await findOne({ model: UserModel, filter: { email },  });
-  if (user) {
-    //logic
-  if (user.provider === ProviderEnum.Google) {
-    const credentials = await getNewLoginCredentials({ user });
-    return successResponse({
-      res,
-      statusCode: 200,
-      message: "Logged in successfully",
-      data: credentials,
+    let user = await findOne({ 
+      model: UserModel, 
+      filter: { email },
     });
-   }
-  }
-  const newUser = await create({ model : UserModel , 
-    data :[
-      {
-    firstName : given_name,
-    lastName : family_name,
-    email,
-    profilePic: picture,
-    provider : ProviderEnum.Google,
-    },
-  ],
-  });
-  // create user
-   const credentials = await getNewLoginCredentials({ newUser });
+    
+    if (user) {
+      if (user.provider !== ProviderEnum.Google) {
+        throw BadRequestException({ 
+          message: "Email already registered with another provider. Please login with your password." 
+        });
+      }
+      
+      const credentials = await getNewLoginCredentials(user);
+      return successResponse({
+        res,
+        message: "Logged in successfully with Google",
+        data: credentials,
+      });
+    }
+    
+    const newUser = await create({
+      model: UserModel,
+      data: [{
+        firstName: given_name || "Google",
+        lastName: family_name || "User",
+        email,
+        profilePic: picture,
+        provider: ProviderEnum.Google,
+        isVerified: true,
+        plan: "free",
+        coins: 0,
+      }],
+    });
+    
+    const credentials = await getNewLoginCredentials(newUser);
+    
     return successResponse({
       res,
       statusCode: 201,
-      message: "Logged in successfully",
-      data:  { credentials },
+      message: "Account created and logged in successfully with Google",
+      data: credentials,
     });
+    
+  } catch (error) {
+    console.error("❌ Google login error:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Google login failed",
+    });
+  }
+};
+
+// ================================
+// 🔐 FACEBOOK LOGIN
+// ================================
+
+async function verifyFacebookAccount({ accessToken }) {
+  const response = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`);
+  return response.data;
+}
+
+export const loginWithFacebook = async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    
+    if (!accessToken) {
+      throw BadRequestException({ message: "Access token is required" });
+    }
+    
+    const { email, name, picture } = await verifyFacebookAccount({ accessToken });
+    
+    if (!email) {
+      throw BadRequestException({ message: "Email not provided by Facebook" });
+    }
+    
+    const firstName = name?.split(" ")[0] || "Facebook";
+    const lastName = name?.split(" ")[1] || "User";
+    const profilePic = picture?.data?.url || null;
+    
+    let user = await findOne({ 
+      model: UserModel, 
+      filter: { email },
+    });
+    
+    if (user) {
+      if (user.provider !== ProviderEnum.Facebook) {
+        throw BadRequestException({ 
+          message: "Email already registered with another provider. Please login with your password." 
+        });
+      }
+      
+      const credentials = await getNewLoginCredentials(user);
+      return successResponse({
+        res,
+        message: "Logged in successfully with Facebook",
+        data: credentials,
+      });
+    }
+    
+    const newUser = await create({
+      model: UserModel,
+      data: [{
+        firstName,
+        lastName,
+        email,
+        profilePic,
+        provider: ProviderEnum.Facebook,
+        isVerified: true,
+        plan: "free",
+        coins: 0,
+      }],
+    });
+    
+    const credentials = await getNewLoginCredentials(newUser);
+    
+    return successResponse({
+      res,
+      statusCode: 201,
+      message: "Account created and logged in successfully with Facebook",
+      data: credentials,
+    });
+    
+  } catch (error) {
+    console.error("❌ Facebook login error:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Facebook login failed",
+    });
+  }
+};
+
+// ================================
+// 🔐 GITHUB LOGIN
+// ================================
+async function getGitHubUser({ code }) {
+  // Exchange code for access token
+  const tokenResponse = await axios.post(
+    "https://github.com/login/oauth/access_token",
+    {
+      client_id: process.env.GITHUB_CLIENT_ID,
+      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      code,
+    },
+    { headers: { Accept: "application/json" } }
+  );
+  
+  const accessToken = tokenResponse.data.access_token;
+  
+  // Get user data
+  const userResponse = await axios.get("https://api.github.com/user", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  
+  // Get user email (primary email)
+  const emailResponse = await axios.get("https://api.github.com/user/emails", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  
+  const primaryEmail = emailResponse.data.find(email => email.primary)?.email;
+  
+  return {
+    ...userResponse.data,
+    email: primaryEmail,
   };
+}
+
+export const loginWithGitHub = async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    if (!code) {
+      throw BadRequestException({ message: "Authorization code is required" });
+    }
+    
+    const { login, name, email, avatar_url } = await getGitHubUser({ code });
+    
+    if (!email) {
+      throw BadRequestException({ message: "Email not provided by GitHub" });
+    }
+    
+    const firstName = name?.split(" ")[0] || login || "GitHub";
+    const lastName = name?.split(" ")[1] || "User";
+    
+    let user = await findOne({ 
+      model: UserModel, 
+      filter: { email },
+    });
+    
+    if (user) {
+      if (user.provider !== ProviderEnum.GitHub) {
+        throw BadRequestException({ 
+          message: "Email already registered with another provider. Please login with your password." 
+        });
+      }
+      
+      const credentials = await getNewLoginCredentials(user);
+      return successResponse({
+        res,
+        message: "Logged in successfully with GitHub",
+        data: credentials,
+      });
+    }
+    
+    const newUser = await create({
+      model: UserModel,
+      data: [{
+        firstName,
+        lastName,
+        email,
+        profilePic: avatar_url,
+        provider: ProviderEnum.GitHub,
+        isVerified: true,
+        plan: "free",
+        coins: 0,
+      }],
+    });
+    
+    const credentials = await getNewLoginCredentials(newUser);
+    
+    return successResponse({
+      res,
+      statusCode: 201,
+      message: "Account created and logged in successfully with GitHub",
+      data: credentials,
+    });
+    
+  } catch (error) {
+    console.error("❌ GitHub login error:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "GitHub login failed",
+    });
+  }
+};
+
+// ================================
+// 🔐 APPLE LOGIN
+// ================================
+
+async function verifyAppleAccount({ authorizationCode }) {
+  const clientSecret = jwt.sign(
+    {},
+    createPrivateKey(process.env.APPLE_PRIVATE_KEY),
+    {
+      algorithm: "ES256",
+      keyid: process.env.APPLE_KEY_ID,
+      issuer: process.env.APPLE_TEAM_ID,
+      audience: "https://appleid.apple.com",
+      subject: process.env.APPLE_CLIENT_ID,
+      expiresIn: "5m",
+    }
+  );
+  
+  const response = await axios.post("https://appleid.apple.com/auth/token", {
+    client_id: process.env.APPLE_CLIENT_ID,
+    client_secret: clientSecret,
+    code: authorizationCode,
+    grant_type: "authorization_code",
+  });
+  
+  const { id_token } = response.data;
+  const decoded = jwt.decode(id_token);
+  
+  return {
+    email: decoded.email,
+    email_verified: decoded.email_verified,
+    sub: decoded.sub,
+  };
+}
+
+export const loginWithApple = async (req, res) => {
+  try {
+    const { authorizationCode } = req.body;
+    
+    if (!authorizationCode) {
+      throw BadRequestException({ message: "Authorization code is required" });
+    }
+    
+    const { email, email_verified } = await verifyAppleAccount({ authorizationCode });
+    
+    if (!email_verified || !email) {
+      throw BadRequestException({ message: "Email not verified by Apple" });
+    }
+    
+    let user = await findOne({ 
+      model: UserModel, 
+      filter: { email },
+    });
+    
+    if (user) {
+      if (user.provider !== ProviderEnum.Apple) {
+        throw BadRequestException({ 
+          message: "Email already registered with another provider. Please login with your password." 
+        });
+      }
+      
+      const credentials = await getNewLoginCredentials(user);
+      return successResponse({
+        res,
+        message: "Logged in successfully with Apple",
+        data: credentials,
+      });
+    }
+    
+    const newUser = await create({
+      model: UserModel,
+      data: [{
+        firstName: "Apple",
+        lastName: "User",
+        email,
+        provider: ProviderEnum.Apple,
+        isVerified: true,
+        plan: "free",
+        coins: 0,
+      }],
+    });
+    
+    const credentials = await getNewLoginCredentials(newUser);
+    
+    return successResponse({
+      res,
+      statusCode: 201,
+      message: "Account created and logged in successfully with Apple",
+      data: credentials,
+    });
+    
+  } catch (error) {
+    console.error("❌ Apple login error:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Apple login failed",
+    });
+  }
+};
+
+// ================================
+// 🔐 X (TWITTER) LOGIN
+// ================================
+async function getTwitterUser({ oauthToken, oauthVerifier }) {
+  // Exchange request token for access token
+  const tokenResponse = await axios.post(
+    "https://api.twitter.com/oauth/access_token",
+    null,
+    {
+      params: {
+        oauth_token: oauthToken,
+        oauth_verifier: oauthVerifier,
+      },
+    }
+  );
+  
+  const params = new URLSearchParams(tokenResponse.data);
+  const accessToken = params.get("oauth_token");
+  const accessSecret = params.get("oauth_token_secret");
+  const userId = params.get("user_id");
+  const screenName = params.get("screen_name");
+  
+  // Get user data
+  const userResponse = await axios.get(
+    `https://api.twitter.com/1.1/users/show.json?user_id=${userId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.TWITTER_BEARER_TOKEN}`,
+      },
+    }
+  );
+  
+  return {
+    id: userId,
+    username: screenName,
+    name: userResponse.data.name,
+    email: `${screenName}@twitter.com`,
+    profilePic: userResponse.data.profile_image_url_https,
+  };
+}
+
+export const loginWithTwitter = async (req, res) => {
+  try {
+    const { oauthToken, oauthVerifier } = req.body;
+    
+    if (!oauthToken || !oauthVerifier) {
+      throw BadRequestException({ message: "OAuth token and verifier are required" });
+    }
+    
+    const { username, name, email, profilePic } = await getTwitterUser({ oauthToken, oauthVerifier });
+    
+    let user = await findOne({ 
+      model: UserModel, 
+      filter: { email },
+    });
+    
+    if (user) {
+      if (user.provider !== ProviderEnum.Twitter) {
+        throw BadRequestException({ 
+          message: "Email already registered with another provider. Please login with your password." 
+        });
+      }
+      
+      const credentials = await getNewLoginCredentials(user);
+      return successResponse({
+        res,
+        message: "Logged in successfully with X (Twitter)",
+        data: credentials,
+      });
+    }
+    
+    const newUser = await create({
+      model: UserModel,
+      data: [{
+        firstName: name?.split(" ")[0] || username || "Twitter",
+        lastName: name?.split(" ")[1] || "User",
+        email,
+        profilePic,
+        provider: ProviderEnum.Twitter,
+        isVerified: true,
+        plan: "free",
+        coins: 0,
+      }],
+    });
+    
+    const credentials = await getNewLoginCredentials(newUser);
+    
+    return successResponse({
+      res,
+      statusCode: 201,
+      message: "Account created and logged in successfully with X (Twitter)",
+      data: credentials,
+    });
+    
+  } catch (error) {
+    console.error("❌ X (Twitter) login error:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "X (Twitter) login failed",
+    });
+  }
+};
 
 // logout with ttl of mongoodb
 export const logout = async (req, res) => {
@@ -481,4 +899,3 @@ export const resetPassword = async (req, res) => {
       });
     
 };
-

@@ -48,7 +48,6 @@ import { resolve } from "node:path";
 import dotenv from "dotenv";
 import Stripe from "stripe";
 
-
 // ✅ تحديد البيئة الحالية
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
@@ -82,17 +81,40 @@ export const REFRESH_EXPIRES = Number(process.env.REFRESH_EXPIRES) || 86400;
 export const CLIENT_ID = process.env.CLIENT_ID;
 export const REDIS_URL = process.env.REDIS_URL;
 
+// Google OAuth
+export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+// Facebook OAuth
+export const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
+export const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
+
+// GitHub OAuth
+export const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+export const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+
+// Apple OAuth
+export const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID;
+export const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID;
+export const APPLE_KEY_ID = process.env.APPLE_KEY_ID;
+export const APPLE_PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY;
+
+// Twitter (X) OAuth
+export const TWITTER_API_KEY = process.env.TWITTER_API_KEY;
+export const TWITTER_API_SECRET = process.env.TWITTER_API_SECRET;
+export const TWITTER_BEARER_TOKEN = process.env.TWITTER_BEARER_TOKEN;
+
 // Sending Emails
 export const USER_EMAIL = process.env.USER_EMAIL;
 export const USER_PASSWORD = process.env.USER_PASSWORD;
 export const BREVO_API_KEY = process.env.BREVO_API_KEY;
+
 // CORS
-// CORS
-// CORS - الأفضل تكتبها كده
-export const WHITE_LIST = process.env.WHITE_LIST || "http://localhost:5173/api,https://sara7a-frontend.vercel.app";
+export const WHITE_LIST = process.env.WHITE_LIST || "http://localhost:5173,https://sara7a-frontend.vercel.app";
 export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 export const CLIENT_URL = process.env.CLIENT_URL;
+
 console.log("🔍 process.env.WHITE_LIST =", process.env.WHITE_LIST);
 console.log("🔍 process.env.NODE_ENV =", process.env.NODE_ENV);
 console.log("DB_URI:", DB_URI);

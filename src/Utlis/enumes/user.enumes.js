@@ -21,6 +21,10 @@ export const TokenTypeEnum = {
 export const ProviderEnum = {
     System: 0,
     Google: 1,
+    Facebook: 2,
+    GitHub: 3,
+    Apple: 4,
+    Twitter: 5, // X
 };
 
 export const LogoutTypeEnum = {

@@ -81,6 +81,7 @@
 
 // export default router;
 
+// backend/src/Modules/Auth/auth.routes.js
 import { Router } from "express";
 import * as authService from "./auth.service.js";
 import * as authValidation from "./auth.validation.js";
@@ -90,72 +91,77 @@ import { validation } from "../../Middlewares/validation.middleware.js";
 
 const router = Router();
 
-// 📝 إنشاء حساب جديد (مفتوح للكل - لا يحتاج Token)
-// ✅ من غير authentication و authorization
+// ================================
+// 📝 PUBLIC ROUTES (no authentication required)
+// ================================
+
+// ✅ REGISTER - Create new account
 router.post("/signup",
-     validation(authValidation.signupSchema),
-      authService.signup
-    );
+    validation(authValidation.signupSchema),
+    authService.signup
+);
 
-
-
-// 🔑 تسجيل الدخول (مفتوح للكل - هو اللي بيولد الـ Token)
+// ✅ LOGIN - Sign in with email/password
 router.post("/login",
     validation(authValidation.loginSchema),
     authService.login
 );
 
-// 📧 تأكيد الإيميل (مفتوح للكل لأنه بيعتمد على الكود المرسل)
-router.patch(
-    "/confirm-email",
+// ✅ CONFIRM EMAIL - Verify email with OTP
+router.patch("/confirm-email",
     validation(authValidation.confirmEmailSchema),
     authService.confirmEmail
 );
 
-// 🔄 إعادة إرسال الـ OTP
-router.patch(
-    "/resend-otp",
+// ✅ RESEND OTP - Resend verification code
+router.patch("/resend-otp",
     validation(authValidation.resendOtpSchema),
     authService.resendOtp
 );
 
-// 🌐 تسجيل دخول بجوجل
-router.post("/social-login", authService.loginWithGoogle);
+// ✅ FORGET PASSWORD - Request password reset
+router.patch("/forget-password",
+    validation(authValidation.forgetPasswordSchema),
+    authService.forgetPassword
+);
 
-// 🔄 تحديث التوكين (يحتاج Refresh Token حصراً)
-router.post(
-    "/refresh-token",
+// ✅ RESET PASSWORD - Reset password with OTP
+router.patch("/reset-password",
+    validation(authValidation.resetPasswordSchema),
+    authService.resetPassword
+);
+
+// ================================
+// 🌐 SOCIAL LOGIN ROUTES
+// ================================
+router.post("/google-login", authService.loginWithGoogle);
+router.post("/facebook-login", authService.loginWithFacebook);
+router.post("/github-login", authService.loginWithGitHub);
+router.post("/apple-login", authService.loginWithApple);
+router.post("/twitter-login", authService.loginWithTwitter);
+
+// ================================
+// 🔒 PROTECTED ROUTES (require authentication)
+// ================================
+
+// 🔄 REFRESH TOKEN - Get new access token
+router.post("/refresh-token",
     authentication({ tokenType: TokenTypeEnum.Refresh }),
     authService.refreshToken
 );
 
-// 🚪 تسجيل الخروج (يحتاج Access Token عشان نعرف مين اللي بيقفل الجلسة)
-router.post(
-    "/logout",  
+// 🚪 LOGOUT - Logout from current device
+router.post("/logout",  
     authentication({ tokenType: TokenTypeEnum.Access }),
     authorization({ AccessRoles: [RoleEnum.User] }),
     validation(authValidation.logoutSchema),
     authService.logout
 );
 
-// 🚪 تسجيل الخروج باستخدام Redis
-router.post(
-    "/logout-with-redis",
+// 🚪 LOGOUT WITH REDIS - Logout using Redis blacklist
+router.post("/logout-with-redis",
     authentication({ tokenType: TokenTypeEnum.Access }),
     authService.logoutWithRedis
-);
-
-// 🆘 نسيان كلمة المرور (مفتوح للكل)
-router.patch("/forget-password",
-    validation(authValidation.forgetPasswordSchema),
-    authService.forgetPassword
-);
-
-// 🛠️ إعادة تعيين كلمة المرور (مفتوح للكل)
-router.patch(
-    "/reset-password",
-    validation(authValidation.resetPasswordSchema),
-    authService.resetPassword
 );
 
 export default router;
