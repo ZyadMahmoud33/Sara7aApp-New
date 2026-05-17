@@ -37,88 +37,25 @@
 //     welcome: "Welcome to Sara7a",
 //     contactUs: "Contact us",
 // }
-import nodemailer from "nodemailer";
-import { USER_EMAIL, USER_PASSWORD } from "../../../config/config.service.js";
+import Brevo from '@getbrevo/brevo';
 
-// ============================================================
-// 🚀 ADVANCED EMAIL SYSTEM FOR RAILWAY
-// ============================================================
+const apiInstance = new Brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
 
-// محاولات متعددة مع fallback
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000;
-
-// تأخير بين المحاولات
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// دالة إرسال مع إعادة المحاولة
-async function sendWithRetry(transporter, mailOptions, attempt = 1) {
+export async function sendEmail({ to, subject, html }) {
     try {
-        const info = await transporter.sendMail(mailOptions);
-        return { success: true, info };
+        const sendSmtpEmail = new Brevo.SendSmtpEmail();
+        sendSmtpEmail.to = [{ email: to }];
+        sendSmtpEmail.sender = { email: process.env.USER_EMAIL, name: "Sara7a Team" };
+        sendSmtpEmail.subject = subject;
+        sendSmtpEmail.htmlContent = html;
+
+        const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+        console.log("✅ Email sent via Brevo:", response.messageId);
+        return response;
     } catch (error) {
-        console.error(`❌ Attempt ${attempt} failed:`, error.message);
-        
-        if (attempt < MAX_RETRIES) {
-            console.log(`🔄 Retrying in ${RETRY_DELAY}ms...`);
-            await sleep(RETRY_DELAY);
-            return sendWithRetry(transporter, mailOptions, attempt + 1);
-        }
-        
-        return { success: false, error };
-    }
-}
-
-export async function sendEmail({ to = "", subject = "", text = "", html = "", cc = "", bcc = "", attachments = [] }) {
-    // التحقق من صحة الإيميل
-    if (!to || !to.includes("@")) {
-        console.error("❌ Invalid email address:", to);
-        return { success: false, error: "Invalid email" };
-    }
-
-    // محاولة استخدام Gmail SMTP
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: USER_EMAIL,
-            pass: USER_PASSWORD,
-        },
-        // إعدادات إضافية للموثوقية
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-    });
-
-    const mailOptions = {
-        from: `"Sara7a" <${USER_EMAIL}>`,
-        to,
-        subject,
-        text,
-        html,
-        cc,
-        bcc,
-        attachments,
-    };
-
-    console.log(`📧 Sending email to: ${to}`);
-    
-    const result = await sendWithRetry(transporter, mailOptions);
-    
-    if (result.success) {
-        console.log(`✅ Email sent successfully: ${result.info.messageId}`);
-        return result.info;
-    } else {
-        console.error(`❌ Failed to send email after ${MAX_RETRIES} attempts`);
-        
-        // Emergency log - show OTP in logs
-        const otpMatch = html?.match(/\d{6}/);
-        const otp = otpMatch ? otpMatch[0] : 'N/A';
-        console.log(`\n🔐 ========== EMERGENCY OTP ==========`);
-        console.log(`📧 To: ${to}`);
-        console.log(`🔑 OTP: ${otp}`);
-        console.log(`=====================================\n`);
-        
-        throw result.error;
+        console.error("❌ Brevo error:", error);
+        throw error;
     }
 }
 
