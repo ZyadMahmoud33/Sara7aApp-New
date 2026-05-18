@@ -72,6 +72,7 @@
 //   return multer({ storage, fileFilter });
 // };
 
+// backend/src/Utlis/multer/local.multer.js
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
@@ -95,7 +96,6 @@ export const localFileUpload = ({
     // 📂 DESTINATION
     // =========================
     destination: (req, file, cb) => {
-      // ✅ استخدام userId من req.user (اللي جا من الـ auth middleware)
       const userId = req.user?._id;
 
       if (!userId) {
@@ -105,7 +105,6 @@ export const localFileUpload = ({
 
       const fullPath = path.resolve(`${basePath}/${userId}`);
 
-      // create folder if not exists
       if (!fs.existsSync(fullPath)) {
         fs.mkdirSync(fullPath, { recursive: true });
       }
@@ -118,7 +117,6 @@ export const localFileUpload = ({
     // 📝 FILENAME
     // =========================
     filename: (req, file, cb) => {
-      // ✅ استخدام userId من req.user
       const userId = req.user?._id;
 
       if (!userId) {
@@ -126,22 +124,18 @@ export const localFileUpload = ({
         return cb(new Error("User not authenticated ❌"));
       }
 
-      const uniqueFileName =
-        Date.now() +
-        "_" +
-        Math.round(Math.random() * 1e9) +
-        "_" +
-        file.originalname;
+      // ✅ تنظيف اسم الملف من المسافات والأقواس والعلامات الخاصة
+      const ext = path.extname(file.originalname);
+      const nameWithoutExt = path.basename(file.originalname, ext);
+      const cleanName = nameWithoutExt.replace(/[()\s]/g, '_');
+      const uniqueFileName = `${Date.now()}_${Math.round(Math.random() * 1e9)}_${cleanName}${ext}`;
 
-      // ✅ تخزين المسار النهائي في file.finalPath
-      file.finalPath = `${basePath}/${userId}/${uniqueFileName}`;
-      file.userId = userId; // تخزين userId في file للاستخدام لاحقاً
+      // ✅ تخزين المسار النهائي
+      const finalPath = `uploads/${customPath}/${userId}/${uniqueFileName}`;
+      file.finalPath = finalPath;
 
       console.log("📝 Filename:", uniqueFileName);
-      console.log("🔗 Final path:", file.finalPath);
-        file.finalPath = `uploads/${customPath}/${userId}/${uniqueFileName}`;
-  
-      console.log("Final path saved:", file.finalPath);
+      console.log("🔗 Final path:", finalPath);
       cb(null, uniqueFileName);
     },
   });

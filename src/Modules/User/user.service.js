@@ -23,6 +23,8 @@ import { RoleEnum } from "../../Utlis/enumes/user.enumes.js";
 
 import Stripe from "stripe";
 import ManualPaymentModel from "../../DB/models/manualPayment.model.js";
+import { v2 as cloudinary } from 'cloudinary';
+
 
 // ======================================
 // 👤 GET PROFILE (SAFE)
@@ -87,6 +89,13 @@ export const getUserById = async (req, res) => {
   });
 };
 
+
+cloudinary.config({
+  cloud_name: 'djcz9btpd',
+  api_key: '829692148814921',
+  api_secret: 'b1TZxGW4l5WQ4jeny1u_LnIS53M',
+});
+
 // ======================================
 // 📸 UPLOAD PROFILE PIC
 // ======================================
@@ -96,38 +105,31 @@ export const uploadProfilePic = async (req, res) => {
       throw new BadRequestException("Image required ❌");
     }
     
-    // ✅ خزن المسار النسبي فقط (من غير C:\)
-    let relativePath = req.file.finalPath || req.file.path;
+    console.log("📁 Original file path:", req.file.path);
     
-    // تنظيف المسار
-    relativePath = relativePath.replace(/\\/g, '/');
+    // ✅ رفع الصورة لـ Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: `Users/${req.user._id}`,
+      transformation: [{ width: 500, height: 500, crop: "fill" }]
+    });
     
-    // استخرج الجزء بعد uploads
-    const uploadsIndex = relativePath.indexOf('uploads');
-    if (uploadsIndex !== -1) {
-      relativePath = relativePath.substring(uploadsIndex);
-    }
-    
-    // ✅ المسار النهائي للتخزين في قاعدة البيانات
-    const dbPath = `/${relativePath}`;
-    
-    console.log("Saving profile pic path:", dbPath);
+    console.log("✅ Cloudinary upload success:", result.secure_url);
     
     const user = await findOneAndUpdate({
       model: UserModel,
       filter: { _id: req.user._id },
-      update: { profilePic: dbPath },
+      update: { profilePic: result.secure_url },
       options: { new: true },
     });
     
     return successResponse({
       res,
       message: "Profile updated ✅",
-      data: user,
+      data: { profilePic: user.profilePic },
     });
     
   } catch (error) {
-    console.error("Upload error:", error);
+    console.error("❌ Cloudinary upload error:", error);
     return res.status(400).json({
       success: false,
       message: error.message,

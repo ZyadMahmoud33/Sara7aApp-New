@@ -34,3 +34,17 @@ export function corsOptions() {
     
     return corsOptions;
 }
+
+// ✅ FIX: middleware لإصلاح مشكلة Cross-Origin-Opener-Policy
+// بيسمح لـ Google OAuth popup يتواصل مع الصفحة بدل ما يتبلوك
+// استخدمه في app.js قبل أي middleware تاني:
+//   import { corsOptions, coopMiddleware } from "./utils/cors.util.js";
+//   app.use(coopMiddleware);
+//   app.use(cors(corsOptions()));
+export function coopMiddleware(req, res, next) {
+    // same-origin-allow-popups → بيسمح للـ popup بتاع Google يتواصل مع الصفحة
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+    // unsafe-none → بيمنع أي تعارض مع الـ COEP
+    res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+    next();
+}
