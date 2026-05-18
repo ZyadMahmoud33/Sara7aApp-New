@@ -299,46 +299,45 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 export const loginWithGoogle = async (req, res) => {
   try {
     console.log("1️⃣ Google login started");
-    const { idToken } = req.body;
+    console.log("2️⃣ Request body:", Object.keys(req.body));
     
-    if (!idToken) {
-      console.error("❌ No idToken received");
-      return res.status(400).json({ message: "No idToken received" });
+    // ✅ استخدم access_token فقط (اللي جاي من implicit flow)
+    const token = req.body.access_token || req.body.idToken || req.body.accessToken;
+    
+    if (!token) {
+      return res.status(400).json({ message: "No token provided" });
     }
     
-    console.log("2️⃣ Token received, length:", idToken.length);
+    console.log("3️⃣ Token type:", token.startsWith("ya29") ? "access_token" : "id_token");
     
-    // ✅ استخدام verifyIdToken بدلاً من axios
-    const ticket = await client.verifyIdToken({
-      idToken: idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+    // ✅ استخدم fetch مع الـ access_token
+    const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${token}` },
     });
     
-    const payload = ticket.getPayload();
-    console.log("3️⃣ Google payload:", payload);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Google API error:", response.status, errorText);
+      return res.status(400).json({ message: "Invalid token" });
+    }
+    
+    const payload = await response.json();
+    console.log("4️⃣ Google user email:", payload.email);
     
     const { email, name, picture, email_verified, given_name, family_name } = payload;
     
-    if (!email_verified) {
+    if (!email || !email_verified) {
       return res.status(400).json({ message: "Email not verified" });
     }
     
-    let user = await findOne({ 
-      model: UserModel, 
-      filter: { email },
-    });
+    let user = await findOne({ model: UserModel, filter: { email } });
     
     if (user) {
       if (user.provider !== ProviderEnum.Google) {
         return res.status(400).json({ message: "Email already registered with another provider" });
       }
-      
       const credentials = await getNewLoginCredentials(user);
-      return successResponse({
-        res,
-        message: "Logged in successfully with Google",
-        data: credentials,
-      });
+      return successResponse({ res, message: "Logged in with Google", data: credentials });
     }
     
     const firstName = given_name || name?.split(" ")[0] || "Google";
@@ -346,36 +345,18 @@ export const loginWithGoogle = async (req, res) => {
     
     const newUser = await create({
       model: UserModel,
-      data: [{
-        firstName,
-        lastName,
-        email,
-        profilePic: picture,
-        provider: ProviderEnum.Google,
-        isVerified: true,
-        plan: "free",
-        coins: 0,
-      }],
+      data: [{ firstName, lastName, email, profilePic: picture, provider: ProviderEnum.Google, isVerified: true, plan: "free", coins: 0 }],
     });
     
     const credentials = await getNewLoginCredentials(newUser);
-    
-    return successResponse({
-      res,
-      statusCode: 201,
-      message: "Account created and logged in successfully with Google",
-      data: credentials,
-    });
+    return successResponse({ res, statusCode: 201, message: "Account created with Google", data: credentials });
     
   } catch (error) {
     console.error("❌ Google login error:", error);
-    console.error("❌ Error stack:", error.stack);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Google login failed",
-    });
+    return res.status(500).json({ message: error.message });
   }
 };
+
 
 // ================================
 // 🔐 FACEBOOK LOGIN
@@ -807,7 +788,7 @@ export const logout = async (req, res) => {
     });
   };
 
-  export const logoutWithRedis = async (req, res) => {
+ export const logoutWithRedis = async (req, res) => {
     const {flag} = req.body;
 
     let status = 200;
