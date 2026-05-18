@@ -22,6 +22,7 @@ import jwt from "jsonwebtoken";
 import { createPrivateKey } from "crypto";
 import axios from "axios";
 
+
 export const signup = async (req, res) => {
   try {
     const { firstName, lastName, email, password, phone, age, confirmPassword } = req.body;
@@ -293,20 +294,33 @@ export const refreshToken = async (req, res) => {
 // ================================
 
 
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const loginWithGoogle = async (req, res) => {
   try {
-    const { idToken } = req.body; // الـ idToken هنا هو access_token فعلاً
+    console.log("1️⃣ Google login started");
+    const { idToken } = req.body;
     
-    // ✅ استخدم access_token مباشرة مع Google API
-    const response = await axios.get(
-      `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${idToken}`
-    );
+    if (!idToken) {
+      console.error("❌ No idToken received");
+      return res.status(400).json({ message: "No idToken received" });
+    }
     
-    const { email, name, picture, email_verified, given_name, family_name } = response.data;
+    console.log("2️⃣ Token received, length:", idToken.length);
+    
+    // ✅ استخدام verifyIdToken بدلاً من axios
+    const ticket = await client.verifyIdToken({
+      idToken: idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    console.log("3️⃣ Google payload:", payload);
+    
+    const { email, name, picture, email_verified, given_name, family_name } = payload;
     
     if (!email_verified) {
-      throw BadRequestException({ message: "Email not verified with Google" });
+      return res.status(400).json({ message: "Email not verified" });
     }
     
     let user = await findOne({ 
@@ -316,9 +330,7 @@ export const loginWithGoogle = async (req, res) => {
     
     if (user) {
       if (user.provider !== ProviderEnum.Google) {
-        throw BadRequestException({ 
-          message: "Email already registered with another provider. Please login with your password." 
-        });
+        return res.status(400).json({ message: "Email already registered with another provider" });
       }
       
       const credentials = await getNewLoginCredentials(user);
@@ -357,6 +369,7 @@ export const loginWithGoogle = async (req, res) => {
     
   } catch (error) {
     console.error("❌ Google login error:", error);
+    console.error("❌ Error stack:", error.stack);
     return res.status(500).json({
       success: false,
       message: error.message || "Google login failed",

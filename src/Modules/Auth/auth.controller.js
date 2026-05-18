@@ -81,7 +81,7 @@
 
 // export default router;
 
-// backend/src/Modules/Auth/auth.routes.js
+// backend/src/Modules/Auth/auth.controller.js
 import { Router } from "express";
 import * as authService from "./auth.service.js";
 import * as authValidation from "./auth.validation.js";
