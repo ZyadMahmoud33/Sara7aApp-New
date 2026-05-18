@@ -291,31 +291,24 @@ export const refreshToken = async (req, res) => {
 // ================================
 // 🔐 GOOGLE LOGIN
 // ================================
-async function verifyGoogleAccount({ idToken }) {
-  const client = new OAuth2Client();
-  const ticket = await client.verifyIdToken({
-    idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();
-  return payload;
-}
+
+
 
 export const loginWithGoogle = async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken } = req.body; // الـ idToken هنا هو access_token فعلاً
     
-    if (!idToken) {
-      throw BadRequestException({ message: "ID Token is required" });
-    }
+    // ✅ استخدم access_token مباشرة مع Google API
+    const response = await axios.get(
+      `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${idToken}`
+    );
     
-    const { email, picture, given_name, family_name, email_verified } =
-      await verifyGoogleAccount({ idToken });
-
+    const { email, name, picture, email_verified, given_name, family_name } = response.data;
+    
     if (!email_verified) {
       throw BadRequestException({ message: "Email not verified with Google" });
     }
-
+    
     let user = await findOne({ 
       model: UserModel, 
       filter: { email },
@@ -336,11 +329,14 @@ export const loginWithGoogle = async (req, res) => {
       });
     }
     
+    const firstName = given_name || name?.split(" ")[0] || "Google";
+    const lastName = family_name || name?.split(" ")[1] || "User";
+    
     const newUser = await create({
       model: UserModel,
       data: [{
-        firstName: given_name || "Google",
-        lastName: family_name || "User",
+        firstName,
+        lastName,
         email,
         profilePic: picture,
         provider: ProviderEnum.Google,
@@ -361,7 +357,7 @@ export const loginWithGoogle = async (req, res) => {
     
   } catch (error) {
     console.error("❌ Google login error:", error);
-    return res.status(error.status || 500).json({
+    return res.status(500).json({
       success: false,
       message: error.message || "Google login failed",
     });
